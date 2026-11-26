@@ -24,9 +24,9 @@ service cloud.firestore {
           'notesCount', 'assignmentCount', 'updatedAt'
         ])
         && request.resource.data.keys().hasAll([
-          'uid', 'displayName', 'email', 'photoURL', 'createdAt',
+          'uid', 'displayName', 'email', 'photoURL',
           'linkedinUrl', 'githubUrl', 'domain', 'collegeName',
-          'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
+          'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
           'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
           'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
           'notesCount', 'assignmentCount', 'updatedAt'
@@ -39,8 +39,8 @@ service cloud.firestore {
         && request.resource.data.githubUrl is string && request.resource.data.githubUrl.size() <= 300
         && request.resource.data.domain is string && request.resource.data.domain.size() <= 120
         && request.resource.data.collegeName is string && request.resource.data.collegeName.size() <= 180
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.lastLoginAt is timestamp
+        && (request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp)
+        && (request.resource.data.lastLoginAt == null || request.resource.data.lastLoginAt is timestamp)
         && request.resource.data.lastActivityAt is timestamp
         && (request.resource.data.lastAttemptAt == null || request.resource.data.lastAttemptAt is timestamp)
         && request.resource.data.updatedAt is timestamp
