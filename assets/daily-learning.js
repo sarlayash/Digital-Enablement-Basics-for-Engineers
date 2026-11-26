@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var PREVIEW = new URLSearchParams(location.search).get("assessmentPreview") === "1";
+  var PREVIEW = (location.protocol === "file:" || location.hostname === "localhost") && new URLSearchParams(location.search).get("assessmentPreview") === "1";
   var oldExtras = window.renderExtras;
   var oldRender = window.render;
   var banks = {};
