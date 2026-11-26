@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function validLearnerSummary(userId) {
+      return request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL', 'createdAt',
+          'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
+          'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
+          'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
+          'notesCount', 'assignmentCount', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'displayName', 'email', 'photoURL', 'createdAt',
+          'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
+          'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
+          'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
+          'notesCount', 'assignmentCount', 'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.photoURL is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.lastLoginAt is timestamp
+        && request.resource.data.lastActivityAt is timestamp
+        && (request.resource.data.lastAttemptAt == null || request.resource.data.lastAttemptAt is timestamp)
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.xp is int
+        && request.resource.data.xp >= 0
+        && request.resource.data.completedDays is list
+        && request.resource.data.completedDays.size() <= 5
+        && request.resource.data.badges is list
+        && request.resource.data.sectionsCompleted is int
+        && request.resource.data.sectionsCompleted >= 0
+        && request.resource.data.sectionsCompleted <= 40
+        && request.resource.data.sectionsTotal == 40
+        && request.resource.data.assessmentPasses is int
+        && request.resource.data.assessmentPasses >= 0
+        && request.resource.data.assessmentAttempts is int
+        && request.resource.data.assessmentAttempts >= 0
+        && request.resource.data.mockTestsPassed is int
+        && request.resource.data.mockTestsPassed >= 0
+        && request.resource.data.notesCount is int
+        && request.resource.data.notesCount >= 0
+        && request.resource.data.assignmentCount is int
+        && request.resource.data.assignmentCount >= 0
+        && request.resource.data.lastAttemptLabel is string;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isOwner(userId) && validLearnerSummary(userId);
+      allow delete: if false;
+    }
+  }
+}

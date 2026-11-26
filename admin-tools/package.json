@@ -1,0 +1,11 @@
+{
+  "name": "digital-enablement-admin-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "grant-admin": "node grant-admin.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1"
+  }
+}

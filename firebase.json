@@ -1,0 +1,13 @@
+{
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Digital Enablement Basics for Engineers",
+        "supportEmail": "kapilnarula27july@gmail.com"
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
