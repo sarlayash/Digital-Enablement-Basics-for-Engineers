@@ -176,7 +176,7 @@
     "</style>");
   document.body.insertAdjacentHTML("beforeend",'<div class="assess-overlay" id="assessmentModal" role="dialog" aria-modal="true"></div><div class="certificate-overlay" id="certificateModal" role="dialog" aria-modal="true"></div>');
 
-  function assessmentWindowOpen(name) { return windowStatus(name).open; }
+  function portalAllowed(day) { var preview=typeof PORTAL_PREVIEW!=="undefined"&&PORTAL_PREVIEW; var hr=new Date().getHours(); return (preview||(hr>=8&&hr<20))&&(typeof access!=="function"||access(day).status!=="locked"); } function assessmentWindowOpen(name) { return windowStatus(name).open; }
   function startAttempt(day,name) {
     var s=phase(day,name), ids=shuffle(bank(day).map(function(_,i){return i;}));
     s.active={ids:ids,at:0,answers:{},hint:false,started:new Date().toISOString()};
@@ -184,8 +184,8 @@
   }
   window.launchAssessment=function(day,name) {
     var s=phase(day,name);
-    if(s.attempts.length>=2){window.reviewAssessment(day,name);return;}
-    if(!assessmentWindowOpen(name)){toast("Assessment window is closed. "+windowStatus(name).label);return;}
+    if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily at 8:00 AM.");return;}if(s.attempts.length>=2){window.reviewAssessment(day,name);return;}
+    if(!assessmentWindowOpen(name)||!portalAllowed(day)){toast("The portal or assessment window is closed. Check the daily access hours.");return;}
     if(!s.active)startAttempt(day,name);
     paintAssessment(day,name);
   };
@@ -214,7 +214,7 @@
   window.finishAssessment=function(day,name) {
     var s=phase(day,name),a=s.active;
     if(!a)return;
-    if(!assessmentWindowOpen(name)){toast("The assessment window has closed. Your answers are saved for the next window.");return;}
+    if(!assessmentWindowOpen(name)||!portalAllowed(day)){toast("The portal or assessment window has closed. Your answers are saved.");return;}
     if(Object.keys(a.answers).length<50){toast("Answer all 50 questions before submitting.");return;}
     var qs=a.ids.map(function(id){return bank(day)[id];});
     var correct=qs.reduce(function(total,q){return total+(a.answers[q.id]===q.correct?1:0);},0);
@@ -234,7 +234,7 @@
     document.getElementById("assessmentModal").classList.add("show");
   };
 
-  window.spinWheel=function(day) {
+  window.spinWheel=function(day) { if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily at 8:00 AM.");return;}
     var s=wheelState(day);
     if(s.current!==null){toast("Answer the current wheel question first.");return;}
     var available=s.pool.filter(function(id){return s.seen.indexOf(id)<0;});
@@ -247,7 +247,7 @@
     var btn=document.querySelector(".wheel-spin");if(btn)btn.disabled=true;
     setTimeout(function(){var host=document.getElementById("wheelQuestionHost");if(host)host.innerHTML=wheelQuestion(day);var b=document.querySelector(".wheel-spin");if(b)b.disabled=true;},3650);
   };
-  window.submitWheel=function(day) {
+  window.submitWheel=function(day) { if(!portalAllowed(day)){toast("Portal is closed for maintenance.");return;}
     var s=wheelState(day),q=s.current===null?null:bank(day)[s.current];
     if(!q)return;
     var selected=document.querySelector('input[name="wheelAnswer"]:checked');
@@ -295,14 +295,14 @@
     var course=day===-1,title=course?"Course completion":"Day 0"+(day+1)+" · "+lessons[day].short;
     return '<div class="certificate-card"><div class="cert-seal">✦</div><div class="eyebrow" style="color:#a27c2b">PROFESSIONAL CERTIFICATE</div><h2>'+title+'</h2><p>Presented to</p><div class="recipient">'+escText(state.name)+'</div><p>'+(course?"for completing all five daily post-assessments in Digital Enablement Basics for Engineers.":"for passing the "+lessons[day].short+" post-assessment in Digital Enablement Basics for Engineers.")+'</p><p>Issued '+new Date().toLocaleDateString()+' · '+(state.xp||0)+' XP</p><p><b>Powered by Mentor Kapil</b><br>Galgotias University · L&T EduTech</p><div class="certificate-actions"><button class="action" onclick="downloadCertificate('+day+',\'png\')">Download PNG</button><button class="action secondary" onclick="downloadCertificate('+day+',\'pdf\')">Download PDF</button><button class="action secondary" onclick="closeCertificate()">Close</button></div></div>';
   }
-  window.openCertificate=function(day) {
+  window.openCertificate=function(day) { if(!portalAllowed(Math.max(0,day))){toast("Portal is closed for maintenance.");return;}
     if(day===-1&&!allPostPassed()){toast("Pass all five post-assessments to unlock the course certificate.");return;}
     if(day>=0&&!phase(day,"post").passed){toast("Pass today’s post-assessment to unlock this certificate.");return;}
     document.getElementById("certificateModal").innerHTML=certificateMarkup(day);
     document.getElementById("certificateModal").classList.add("show");
   };
   window.closeCertificate=function(){document.getElementById("certificateModal").classList.remove("show");};
-  window.downloadCertificate=function(day,format) {
+  window.downloadCertificate=function(day,format) { if(!portalAllowed(Math.max(0,day))){toast("Portal is closed for maintenance.");return;}
     if(day===-1&&!allPostPassed()){toast("Pass all five post-assessments to unlock the course certificate.");return;}
     if(day>=0&&!phase(day,"post").passed){toast("Pass today’s post-assessment to unlock this certificate.");return;}
     var canvas=drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";
