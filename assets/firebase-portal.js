@@ -1,5 +1,5 @@
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDSNJkFw_AZ0DTFDEABje5R4invmqGQw8PE",
+  apiKey: "AIzaSyDSNKjFw_AZ0DTFDEABje5R4invmgQw8PE",
   authDomain: "digital-enablement.firebaseapp.com",
   projectId: "digital-enablement",
   storageBucket: "digital-enablement.firebasestorage.app",
