@@ -13,12 +13,14 @@ let auth;
 let db;
 let currentUser = null;
 let adminUnsubscribes = [];
-let adminDetailUnsubscribe = null;
+let adminDetailUnsubscribes = [];
 let adminUsers = [];
 let adminFeedback = [];
 let adminAttendance = [];
 let selectedAdminUid = null;
 let adminDayRecords = [];
+let adminDetailFeedback = [];
+let adminDetailAttendance = [];
 let latestState = null;
 let syncTimer = 0;
 let syncInFlight = Promise.resolve();
@@ -317,6 +319,9 @@ function latestAttempt(state) {
 function makeSummary(user, state, login = false) {
   const profile = state?.profile || {};
   const profileName = String(profile.fullName || state?.profileName || state?.name || user.displayName || user.email || "Learner").trim().slice(0, 120);
+  const feedbackItems = Object.values(myFeedback);
+  const attendanceItems = Object.values(myAttendance);
+  const averageRating = field => feedbackItems.length ? Number((feedbackItems.reduce((sum, item) => sum + (Number(item[field]) || 0), 0) / feedbackItems.length).toFixed(2)) : 0;
   const days = Array.from({ length: 5 }, (_, day) => day);
   const completedDays = Object.entries(state?.dayAwards || {}).filter(([, completed]) => !!completed).map(([day]) => Number(day)).filter(day => Number.isInteger(day) && day >= 0 && day < 5);
   let sectionsCompleted = 0;
@@ -351,6 +356,10 @@ function makeSummary(user, state, login = false) {
     githubUrl: String(profile.githubUrl || "").trim().slice(0, 300),
     domain: String(profile.domain || "").trim().slice(0, 120),
     collegeName: String(profile.collegeName || "").trim().slice(0, 180),
+    feedbackCount: feedbackItems.length,
+    attendanceCount: attendanceItems.length,
+    averageContentRating: averageRating("contentRating"),
+    averageDeliveryRating: averageRating("deliveryRating"),
     lastActivityAt: window.firebaseServerTimestamp(),
     lastAttemptAt: attempt ? window.firebaseTimestampFromDate(attempt.date) : null,
     lastAttemptLabel: attempt?.label || "No assessment attempts yet",
@@ -455,9 +464,11 @@ function renderAdminDashboard(fromCache = false) {
   const attempts = adminUsers.reduce((sum, user) => sum + (Number(user.assessmentAttempts) || 0), 0);
   const passes = adminUsers.reduce((sum, user) => sum + (Number(user.assessmentPasses) || 0), 0);
   const avgXP = adminUsers.length ? Math.round(adminUsers.reduce((sum, user) => sum + (Number(user.xp) || 0), 0) / adminUsers.length) : 0;
-  const ratingAverage = (field, entries = adminFeedback) => entries.length ? (entries.reduce((sum, item) => sum + (Number(item[field]) || 0), 0) / entries.length).toFixed(1) : "—";
-  const attendanceFor = uid => adminAttendance.filter(item => item.uid === uid);
-  const feedbackFor = uid => adminFeedback.filter(item => item.uid === uid);
+  const ratingAverage = field => {
+    const total = adminUsers.reduce((sum, user) => sum + (Number(user[field]) || 0), 0);
+    const count = adminUsers.filter(user => Number(user[field]) > 0).length;
+    return count ? (total / count).toFixed(1) : "—";
+  };
   const query = (document.getElementById("adminSearch")?.value || "").trim().toLowerCase();
   const filtered = adminUsers.filter(user => `${user.displayName || ""} ${user.email || ""}`.toLowerCase().includes(query));
   const bars = Array.from({ length: 5 }, (_, day) => {
@@ -466,34 +477,32 @@ function renderAdminDashboard(fromCache = false) {
     return `<div class="firebase-day-bar"><div><i style="height:${percent}%"></i></div><b>${count}</b><small>Day ${day + 1}</small></div>`;
   }).join("");
   const rows = filtered.map(user => {
-    const attendance = attendanceFor(user.id);
-    const feedback = feedbackFor(user.id);
     return `<tr>
     <td class="user-cell"><b>${escapeHTML(user.displayName || "Learner")}</b><span>${escapeHTML(user.email || "")}</span><button class="action secondary admin-detail-button" data-learner-uid="${escapeHTML(user.id)}">View individual detail</button></td>
     <td>${escapeHTML(formatDate(user.lastLoginAt))}</td><td>${escapeHTML(formatDate(user.lastAttemptAt))}<br><span style="color:#7b8498">${escapeHTML(user.lastAttemptLabel || "")}</span></td>
     <td>${escapeHTML(formatDate(user.createdAt))}</td><td>${(user.completedDays || []).length} / 5</td><td>${Number(user.sectionsCompleted) || 0} / 40</td>
     <td>${Number(user.assessmentPasses) || 0} / ${Number(user.assessmentAttempts) || 0}</td><td>${Number(user.mockTestsPassed) || 0}</td>
-    <td>${attendance.length}</td><td>${feedback.length ? `${ratingAverage("contentRating", feedback)} / 5` : "—"}</td><td>${feedback.length ? `${ratingAverage("deliveryRating", feedback)} / 5` : "—"}</td>
+    <td>${Number(user.attendanceCount) || 0}</td><td>${Number(user.averageContentRating) ? `${Number(user.averageContentRating).toFixed(1)} / 5` : "—"}</td><td>${Number(user.averageDeliveryRating) ? `${Number(user.averageDeliveryRating).toFixed(1)} / 5` : "—"}</td>
     <td>${(user.badges || []).length}</td><td>${Number(user.xp) || 0}</td><td>${escapeHTML(formatDate(user.lastActivityAt))}</td></tr>`;
   }).join("");
   const selected = selectedAdminUid && adminUsers.find(user => user.id === selectedAdminUid);
   const detailRows = adminDayRecords.slice().sort((a, b) => a.day - b.day).map(day => `<tr><td>Day ${day.day}</td><td>${day.completedSections || 0} / 8</td><td>${day.prePassed ? "Passed" : "Not passed"} · ${day.preBest || 0}/50 · ${day.preAttempts || 0} tries</td><td>${day.postPassed ? "Passed" : "Not passed"} · ${day.postBest || 0}/50 · ${day.postAttempts || 0} tries</td><td>${day.wheelQuestions || 0} / 25</td><td>${day.notesSaved ? "Saved" : "—"} · ${day.assignmentSubmitted ? "Submitted" : "—"}</td><td>${day.badgeEarned ? "Earned" : "—"}</td></tr>`).join("");
-  const selectedFeedback = selected ? feedbackFor(selected.id).slice().sort((a, b) => (dateValue(b.submittedAt)?.getTime() || 0) - (dateValue(a.submittedAt)?.getTime() || 0)) : [];
-  const selectedAttendance = selected ? attendanceFor(selected.id).slice().sort((a, b) => String(b.sessionDate || "").localeCompare(String(a.sessionDate || ""))) : [];
+  const selectedFeedback = selected ? adminDetailFeedback.slice().sort((a, b) => (dateValue(b.submittedAt)?.getTime() || 0) - (dateValue(a.submittedAt)?.getTime() || 0)) : [];
+  const selectedAttendance = selected ? adminDetailAttendance.slice().sort((a, b) => String(b.sessionDate || "").localeCompare(String(a.sessionDate || ""))) : [];
   const feedbackRows = selectedFeedback.map(item => `<tr><td>Day ${item.day}</td><td>${item.contentRating} / 5</td><td>${item.deliveryRating} / 5</td><td>${escapeHTML(item.comment || "—")}</td><td>${escapeHTML(formatDate(item.submittedAt))}</td></tr>`).join("");
   const attendanceRows = selectedAttendance.map(item => `<tr><td>${escapeHTML(item.sessionDate || "—")}</td><td>Day ${item.day}</td><td>${escapeHTML(formatDate(item.punchedInAt))}</td><td>${escapeHTML(formatDate(item.punchedOutAt))}</td><td>${item.punchedOutAt ? "Complete" : "In progress"}</td></tr>`).join("");
   const recipientOptions = filtered.map(user => `<option value="${escapeHTML(user.id)}">${escapeHTML(user.displayName || "Learner")} · ${escapeHTML(user.email || "No email")}</option>`).join("");
   const communications = `<section class="firebase-comms"><header class="firebase-comms-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h2>Send a reminder or announcement</h2><p>Send a targeted message, or broadcast to all learners in the current filtered list. In-app updates are delivered live; optional emails enter the protected Firebase mail queue.</p></div><span class="firebase-live-indicator">ADMIN ONLY</span></header><div class="firebase-comms-grid"><label>Recipients<select id="adminMessageTarget"><option value="all">All current results · ${filtered.length} learner${filtered.length === 1 ? "" : "s"}</option>${recipientOptions}</select></label><label>Message type<select id="adminMessageKind"><option value="Reminder">Reminder</option><option value="Announcement">Announcement</option><option value="Session update">Session update</option></select></label><label class="wide">Subject<input id="adminMessageSubject" maxlength="140" placeholder="e.g., Day 2 post-assessment opens at 4 PM"></label><label class="wide">Message<textarea id="adminMessageBody" maxlength="2000" placeholder="Write the reminder, instruction, or course update learners should receive."></textarea></label><label class="wide firebase-comms-check"><input id="adminMessageEmail" type="checkbox" checked><span>Queue an email copy for each recipient</span></label></div><div class="firebase-comms-actions"><small>For email delivery, configure Firebase Trigger Email with your approved SMTP provider. Until then, in-app updates still deliver live.</small><button class="action" id="sendCourseCommunication">Send to learners</button></div></section>`;
   const details = selected ? `<section class="firebase-detail"><header class="firebase-detail-head"><div><span class="eyebrow" style="color:#5368c9">INDIVIDUAL LEARNER RECORD</span><h2>${escapeHTML(selected.displayName || "Learner")}</h2><p>${escapeHTML(selected.email || "")} · ${Number(selected.xp) || 0} XP · ${(selected.completedDays || []).length}/5 days</p></div><button class="action secondary" id="closeAdminDetail">Close detail</button></header><div class="firebase-detail-scroll"><h3>Day-by-day performance</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Sections</th><th>Pre-assessment</th><th>Post-assessment</th><th>Spin challenge</th><th>Notes / assignment</th><th>Badge</th></tr></thead><tbody>${detailRows || `<tr><td colspan="7" class="firebase-empty">Daily progress records are syncing. Refresh in a moment.</td></tr>`}</tbody></table></div><h3>Daily learner feedback</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Content</th><th>Delivery</th><th>Comment</th><th>Submitted</th></tr></thead><tbody>${feedbackRows || `<tr><td colspan="5" class="firebase-empty">No feedback submitted yet.</td></tr>`}</tbody></table></div><h3>Attendance punches</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Date</th><th>Session</th><th>Punch in</th><th>Punch out</th><th>Status</th></tr></thead><tbody>${attendanceRows || `<tr><td colspan="5" class="firebase-empty">No attendance punches recorded yet.</td></tr>`}</tbody></table></div></div></section>` : "";
   root.innerHTML = `<header class="firebase-admin-head"><div><span class="eyebrow" style="color:#5368c9">ADMIN · LIVE LEARNER OPERATIONS</span><h1 id="firebaseAdminTitle">Learner performance</h1><p>Live individual progress, assessment outcomes, feedback and session attendance. Learner notes and assignment text remain private.</p></div><span class="firebase-live-indicator">${fromCache ? "CACHED SNAPSHOT" : "LIVE UPDATES"}</span></header>
-    <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminAttendance.length}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminFeedback.length}</strong></article></div>
-    <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("contentRating")} / 5 · average delivery rating: ${ratingAverage("deliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>${communications}
+    <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.attendanceCount) || 0), 0)}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.feedbackCount) || 0), 0)}</strong></article></div>
+    <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("averageContentRating")} / 5 · average delivery rating: ${ratingAverage("averageDeliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>${communications}
     <section class="firebase-users"><div class="panelhead"><div><h2>All learner records</h2><p class="assessment-sub">Open an individual profile for daily scores, notes/assignment completion, feedback, and attendance punches.</p></div></div><div class="firebase-users-toolbar"><input id="adminSearch" type="search" placeholder="Filter by learner name or email" aria-label="Filter learner records"><button class="action" id="downloadAdminCsv">Download performance CSV</button><button class="action secondary" id="downloadActivityCsv">Download feedback & attendance CSV</button></div><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Learner</th><th>Last sign-in</th><th>Last attempt</th><th>Registered</th><th>Days</th><th>Sections</th><th>Assessment pass / attempts</th><th>Mock passes</th><th>Attendance</th><th>Content rating</th><th>Delivery rating</th><th>Badges</th><th>XP</th><th>Last activity</th></tr></thead><tbody>${rows || `<tr><td colspan="14" class="firebase-empty">${adminUsers.length ? "No learners match this filter." : "No Google learner profiles are recorded yet."}</td></tr>`}</tbody></table></div><p class="firebase-sync-note">Live Firestore listeners · ${new Date().toLocaleTimeString()} · Learner progress, feedback and punches update as they are saved.</p></section>${details}`;
   document.getElementById("adminSearch")?.addEventListener("input", () => renderAdminDashboard(fromCache));
   document.getElementById("downloadAdminCsv")?.addEventListener("click", downloadAdminCSV);
   document.getElementById("downloadActivityCsv")?.addEventListener("click", downloadAdminActivityCSV);
   document.getElementById("sendCourseCommunication")?.addEventListener("click", sendCourseCommunication);
-  document.getElementById("closeAdminDetail")?.addEventListener("click", () => { adminDetailUnsubscribe?.(); adminDetailUnsubscribe = null; selectedAdminUid = null; adminDayRecords = []; renderAdminDashboard(fromCache); });
+  document.getElementById("closeAdminDetail")?.addEventListener("click", () => { adminDetailUnsubscribes.forEach(unsubscribe => unsubscribe()); adminDetailUnsubscribes = []; selectedAdminUid = null; adminDayRecords = []; adminDetailFeedback = []; adminDetailAttendance = []; renderAdminDashboard(fromCache); });
   root.querySelectorAll("[data-learner-uid]").forEach(button => button.addEventListener("click", () => openAdminLearnerDetail(button.dataset.learnerUid)));
 }
 
@@ -518,15 +527,13 @@ function downloadAdminCSV() {
 }
 
 function downloadAdminActivityCSV() {
-  const users = new Map(adminUsers.map(user => [user.id, user]));
-  const header = ["Record type", "Learner", "Email", "Day", "Date", "Punch in", "Punch out", "Content rating", "Delivery rating", "Feedback", "Submitted"];
-  const attendanceRows = adminAttendance.map(item => ["Attendance", item.learnerName || users.get(item.uid)?.displayName, item.email || users.get(item.uid)?.email, item.day, item.sessionDate, formatDate(item.punchedInAt), formatDate(item.punchedOutAt), "", "", "", ""]);
-  const feedbackRows = adminFeedback.map(item => ["Feedback", item.learnerName || users.get(item.uid)?.displayName, item.email || users.get(item.uid)?.email, item.day, "", "", "", item.contentRating, item.deliveryRating, item.comment, formatDate(item.submittedAt)]);
-  const csv = [header, ...attendanceRows, ...feedbackRows].map(row => row.map(csvCell).join(",")).join("\r\n");
+  const header = ["Learner", "Email", "Attendance sessions", "Feedback entries", "Average content rating", "Average delivery rating", "Last activity"];
+  const rows = adminUsers.map(user => [user.displayName, user.email, user.attendanceCount || 0, user.feedbackCount || 0, user.averageContentRating || "", user.averageDeliveryRating || "", formatDate(user.lastActivityAt)]);
+  const csv = [header, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `digital-enablement-attendance-feedback-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `digital-enablement-engagement-summary-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -594,18 +601,23 @@ function openAdminLearnerDetail(uid) {
   if (!uid || !db || !window.firebaseIsAdmin) return;
   selectedAdminUid = uid;
   adminDayRecords = [];
-  adminDetailUnsubscribe?.();
+  adminDetailFeedback = [];
+  adminDetailAttendance = [];
+  adminDetailUnsubscribes.forEach(unsubscribe => unsubscribe());
+  adminDetailUnsubscribes = [];
   const user = adminUsers.find(item => item.id === uid);
   if (user) renderAdminDashboard(false);
-  adminDetailUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", uid, "days"), snapshot => {
-    adminDayRecords = snapshot.docs.map(item => item.data());
-    renderAdminDashboard(snapshot.metadata.fromCache);
-  }, error => {
+  const onDetailError = error => {
     adminDayRecords = [];
     const root = document.getElementById("firebaseAdminDashboard");
     const note = root?.querySelector(".firebase-detail-scroll");
     if (note) note.insertAdjacentHTML("afterbegin", `<p class="firebase-error">${escapeHTML(readableError(error))}</p>`);
-  });
+  };
+  adminDetailUnsubscribes = [
+    window.firebaseOnSnapshot(window.firebaseCollection(db, "users", uid, "days"), snapshot => { adminDayRecords = snapshot.docs.map(item => item.data()); renderAdminDashboard(snapshot.metadata.fromCache); }, onDetailError),
+    window.firebaseOnSnapshot(window.firebaseCollection(db, "users", uid, "feedback"), snapshot => { adminDetailFeedback = snapshot.docs.map(item => item.data()); renderAdminDashboard(snapshot.metadata.fromCache); }, onDetailError),
+    window.firebaseOnSnapshot(window.firebaseCollection(db, "users", uid, "attendance"), snapshot => { adminDetailAttendance = snapshot.docs.map(item => item.data()); renderAdminDashboard(snapshot.metadata.fromCache); }, onDetailError)
+  ];
 }
 
 function startAdminListener() {
@@ -618,20 +630,10 @@ function startAdminListener() {
     const root = document.getElementById("firebaseAdminDashboard");
     if (root) root.innerHTML = `<section class="panel"><h2>Admin report unavailable</h2><p>${escapeHTML(readableError(error))}</p><p>Confirm your admin claim and deploy the current Firestore rules.</p></section>`;
   };
-  adminUnsubscribes = [
-    window.firebaseOnSnapshot(window.firebaseCollection(db, "users"), snapshot => {
-      adminUsers = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (dateValue(b.lastActivityAt)?.getTime() || 0) - (dateValue(a.lastActivityAt)?.getTime() || 0));
-      renderAdminDashboard(snapshot.metadata.fromCache);
-    }, onError),
-    window.firebaseOnSnapshot(window.firebaseCollectionGroup(db, "feedback"), snapshot => {
-      adminFeedback = snapshot.docs.map(item => item.data());
-      renderAdminDashboard(snapshot.metadata.fromCache);
-    }, onError),
-    window.firebaseOnSnapshot(window.firebaseCollectionGroup(db, "attendance"), snapshot => {
-      adminAttendance = snapshot.docs.map(item => item.data());
-      renderAdminDashboard(snapshot.metadata.fromCache);
-    }, onError)
-  ];
+  adminUnsubscribes = [window.firebaseOnSnapshot(window.firebaseCollection(db, "users"), snapshot => {
+    adminUsers = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (dateValue(b.lastActivityAt)?.getTime() || 0) - (dateValue(a.lastActivityAt)?.getTime() || 0));
+    renderAdminDashboard(snapshot.metadata.fromCache);
+  }, onError)];
 }
 
 function setAdminAccess(enabled) {
@@ -641,10 +643,12 @@ function setAdminAccess(enabled) {
   if (!enabled) {
     adminUnsubscribes.forEach(unsubscribe => unsubscribe());
     adminUnsubscribes = [];
-    adminDetailUnsubscribe?.();
-    adminDetailUnsubscribe = null;
+    adminDetailUnsubscribes.forEach(unsubscribe => unsubscribe());
+    adminDetailUnsubscribes = [];
     selectedAdminUid = null;
     adminDayRecords = [];
+    adminDetailFeedback = [];
+    adminDetailAttendance = [];
     document.getElementById("firebaseAdminDashboard")?.setAttribute("hidden", "");
   }
 }
@@ -710,10 +714,12 @@ function startLearnerActivityListeners(user) {
   myFeedbackUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "feedback"), snapshot => {
     myFeedback = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyFeedback?.(day);
+    if (latestState) queueProgress(latestState);
   }, error => window.firebaseSetCloudStatus(readableError(error), true));
   myAttendanceUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "attendance"), snapshot => {
     myAttendance = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyAttendance?.(day);
+    if (latestState) queueProgress(latestState);
   }, error => window.firebaseSetCloudStatus(readableError(error), true));
   myNotificationsUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "notifications"), snapshot => {
     myNotifications = snapshot.docs.map(item => item.data()).sort((a, b) => (dateValue(b.createdAt)?.getTime() || 0) - (dateValue(a.createdAt)?.getTime() || 0));

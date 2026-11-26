@@ -18,6 +18,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid', 'displayName', 'email', 'photoURL', 'createdAt',
           'linkedinUrl', 'githubUrl', 'domain', 'collegeName',
+          'feedbackCount', 'attendanceCount', 'averageContentRating', 'averageDeliveryRating',
           'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
           'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
           'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
@@ -26,6 +27,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'uid', 'displayName', 'email', 'photoURL',
           'linkedinUrl', 'githubUrl', 'domain', 'collegeName',
+          'feedbackCount', 'attendanceCount', 'averageContentRating', 'averageDeliveryRating',
           'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
           'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
           'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
@@ -39,6 +41,10 @@ service cloud.firestore {
         && request.resource.data.githubUrl is string && request.resource.data.githubUrl.size() <= 300
         && request.resource.data.domain is string && request.resource.data.domain.size() <= 120
         && request.resource.data.collegeName is string && request.resource.data.collegeName.size() <= 180
+        && request.resource.data.feedbackCount is int && request.resource.data.feedbackCount >= 0 && request.resource.data.feedbackCount <= 5
+        && request.resource.data.attendanceCount is int && request.resource.data.attendanceCount >= 0
+        && request.resource.data.averageContentRating is number && request.resource.data.averageContentRating >= 0 && request.resource.data.averageContentRating <= 5
+        && request.resource.data.averageDeliveryRating is number && request.resource.data.averageDeliveryRating >= 0 && request.resource.data.averageDeliveryRating <= 5
         && (request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp)
         && (request.resource.data.lastLoginAt == null || request.resource.data.lastLoginAt is timestamp)
         && request.resource.data.lastActivityAt is timestamp
