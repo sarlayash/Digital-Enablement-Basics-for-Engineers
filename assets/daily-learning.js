@@ -356,6 +356,7 @@
   state.done=(state.done||[]).filter(function(i){return !!state.dayAwards[i];});
   state.dayBadges=(state.dayBadges||[]).filter(function(i){return !!state.dayAwards[i];});
   persist();
+  if(typeof window.render==="function")window.render();
   updateNumbers();
   if(PREVIEW)document.documentElement.classList.add("assessment-preview");
   window.setInterval(function(){
