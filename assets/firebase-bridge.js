@@ -19,7 +19,7 @@
     var ownRaw = localStorage.getItem(ownKey);
     var next = owner === uid ? readState(activeRaw) : ownRaw ? readState(ownRaw) : readState(activeRaw);
     state = next;
-    state.name = user.displayName || user.email || state.name || "Learner";
+    state.name = state.profileName || state.profile?.fullName || user.displayName || user.email || state.name || "Learner";
     if (!state.start) state.start = Date.now();
     localStorage.setItem(ownerKey, uid);
     localStorage.setItem(ownKey, JSON.stringify(state));

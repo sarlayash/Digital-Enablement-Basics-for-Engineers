@@ -29,6 +29,8 @@ Learners can use Google sign-in for an account that syncs a performance summary 
 
 Google-authenticated learners can also punch in and punch out for each day's session and submit one revisable day-level feedback entry with separate content and delivery ratings. Administrators receive these changes live, can open a learner's individual day-by-day progress record, and can export performance or attendance-and-feedback CSV reports. Attendance timestamps are recorded by Firestore; an attendance punch confirms portal participation and should be reconciled with the physical-session register where formal attendance is required.
 
+Learners can update their certificate name, LinkedIn URL, GitHub URL, engineering domain, and college name from **My profile**. Administrators can send an in-portal reminder or announcement to one learner or all learners in the current filter, and may queue matching email copies in the protected `mail` collection. To deliver queued emails, install and configure Firebase's Trigger Email extension with an approved SMTP provider; no email credentials are stored in this static site.
+
 The Firebase web configuration is in `assets/firebase-portal.js`. Before Google sign-in or cloud reporting works, configure the Firebase project:
 
 1. Deploy the included Google provider configuration with `firebase deploy --only auth --project digital-enablement`, then add `sarlayash.github.io` to Authentication's authorized domains in Firebase Console.

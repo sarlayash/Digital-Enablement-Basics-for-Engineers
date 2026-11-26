@@ -26,8 +26,10 @@ let cloudReady = false;
 const syncedDayFingerprints = new Map();
 let myFeedback = {};
 let myAttendance = {};
+let myNotifications = [];
 let myFeedbackUnsubscribe = null;
 let myAttendanceUnsubscribe = null;
+let myNotificationsUnsubscribe = null;
 
 function installPortalControls() {
   const login = document.querySelector(".loginbox");
@@ -74,9 +76,21 @@ function installPortalControls() {
     google?.insertAdjacentElement("afterend", status);
   }
 
-  if (!document.getElementById("navAdmin")) {
+  if (!document.getElementById("navProfile")) {
     const nav = document.querySelector(".side .nav");
     if (nav) {
+      const profileButton = document.createElement("button");
+      profileButton.type = "button";
+      profileButton.id = "navProfile";
+      profileButton.textContent = "◉  My profile";
+      profileButton.addEventListener("click", () => window.showFirebaseProfile?.());
+      nav.append(profileButton);
+      const notificationsButton = document.createElement("button");
+      notificationsButton.type = "button";
+      notificationsButton.id = "navNotifications";
+      notificationsButton.innerHTML = '◌  Updates <span class="notification-nav-count" id="notificationNavCount" hidden>0</span>';
+      notificationsButton.addEventListener("click", () => window.showFirebaseNotifications?.());
+      nav.append(notificationsButton);
       const button = document.createElement("button");
       button.type = "button";
       button.id = "navAdmin";
@@ -97,7 +111,7 @@ function installPortalControls() {
 
   if (!document.getElementById("firebaseAdminDashboard")) {
     const content = document.querySelector(".content");
-    content?.insertAdjacentHTML("beforeend", '<section class="firebase-admin" id="firebaseAdminDashboard" hidden aria-labelledby="firebaseAdminTitle"></section>');
+    content?.insertAdjacentHTML("beforeend", '<section class="firebase-profile" id="firebaseProfilePanel" hidden aria-labelledby="firebaseProfileTitle"></section><section class="firebase-notifications" id="firebaseNotificationsPanel" hidden aria-labelledby="firebaseNotificationsTitle"></section><section class="firebase-admin" id="firebaseAdminDashboard" hidden aria-labelledby="firebaseAdminTitle"></section>');
   }
 
   document.head.insertAdjacentHTML("beforeend", `<style>
@@ -112,13 +126,15 @@ function installPortalControls() {
     .firebase-admin-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}.firebase-admin-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:17px}.firebase-admin-kpi small{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.7px}.firebase-admin-kpi strong{display:block;margin-top:8px;font:800 24px Manrope;color:#203052}
     .firebase-analysis{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px;margin-bottom:16px}.firebase-analysis h2,.firebase-users h2{font:800 15px Manrope;margin:0}.firebase-analysis>p{font-size:11px;color:var(--muted);line-height:1.5}.firebase-day-chart{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:end;margin-top:16px}.firebase-day-bar{display:grid;gap:7px;text-align:center}.firebase-day-bar>div{height:88px;display:flex;align-items:flex-end;justify-content:center;background:#f4f6fa;border-radius:9px;overflow:hidden}.firebase-day-bar i{display:block;width:55%;min-height:4px;background:linear-gradient(#7590f5,#3e61dc);border-radius:8px 8px 0 0}.firebase-day-bar b{font:10px 'DM Mono';color:#35425d}.firebase-day-bar small{font-size:9px;color:var(--muted)}
     .firebase-users{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px}.firebase-users-toolbar{display:flex;align-items:center;gap:9px;margin:14px 0}.firebase-users-toolbar input{flex:1;min-width:120px;border:1px solid #dce1ea;border-radius:9px;padding:10px;font-size:11px}.firebase-users-toolbar button{white-space:nowrap}.firebase-table-wrap{overflow:auto;border:1px solid #e8ebf1;border-radius:11px}.firebase-table{width:100%;border-collapse:collapse;min-width:980px;text-align:left}.firebase-table th{position:sticky;top:0;background:#f7f8fb;color:#6b758a;font:10px 'DM Mono';text-transform:uppercase;letter-spacing:.3px;padding:11px 10px;border-bottom:1px solid #e6e9ef}.firebase-table td{padding:11px 10px;border-bottom:1px solid #edf0f4;color:#35415b;font-size:10px;vertical-align:top}.firebase-table tr:last-child td{border-bottom:0}.firebase-table .user-cell b,.firebase-table .user-cell span{display:block;max-width:180px;overflow-wrap:anywhere}.firebase-table .user-cell span{font-size:9px;color:#7c8699;margin-top:4px}.admin-detail-button{margin-top:8px!important;font-size:9px!important;padding:7px 8px!important}.firebase-detail{margin-top:16px;padding:19px;background:linear-gradient(145deg,#f8fbff,#fff);border:1px solid #d7e1f2;border-radius:16px}.firebase-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}.firebase-detail-head h2{margin:5px 0;font:800 20px Manrope;color:#213253}.firebase-detail-head p{margin:0;color:#69758b;font-size:11px}.firebase-detail-scroll{display:grid;gap:12px}.firebase-detail-scroll h3{font:800 13px Manrope;color:#2b3b5c;margin:5px 0 -3px}.firebase-error{padding:10px 12px;background:#fff1ef;color:#9b382e;border-radius:9px;font-size:11px}.firebase-empty{padding:28px;text-align:center;color:var(--muted);font-size:12px}.firebase-sync-note{font-size:10px;color:var(--muted);margin-top:10px}
-    @media(max-width:800px){.firebase-admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.firebase-admin-head,.firebase-detail-head{flex-direction:column}.firebase-users{padding:13px}.firebase-users-toolbar{flex-wrap:wrap}.firebase-users-toolbar input{flex-basis:100%}}
+    .notification-nav-count{float:right;min-width:18px;padding:2px 5px;border-radius:99px;background:#e8efff;color:#3d58be;font:9px 'DM Mono';text-align:center}.firebase-profile,.firebase-notifications{padding:26px 0 50px}.firebase-profile[hidden],.firebase-notifications[hidden]{display:none}.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:17px}.firebase-profile-head h1,.firebase-notifications-head h1{font:800 26px Manrope;margin:5px 0;color:#203052}.firebase-profile-head p,.firebase-notifications-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}.firebase-profile-card{max-width:850px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:16px}.firebase-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.firebase-profile-field{display:grid;gap:6px}.firebase-profile-field label{font-size:11px;font-weight:700;color:#43516d}.firebase-profile-field input{width:100%;border:1px solid #dce2ec;border-radius:9px;padding:10px 11px;color:#33415b;font-size:12px}.firebase-profile-field small{font-size:10px;color:#758096;line-height:1.45}.firebase-profile-field.wide{grid-column:1/-1}.firebase-profile-card .action{margin-top:17px}.firebase-profile-sync{margin:12px 0 0;color:#55708d;font-size:10px}.firebase-notification-list{display:grid;gap:11px;max-width:900px}.firebase-notification{padding:16px;border:1px solid #dfe5ee;border-radius:14px;background:#fff}.firebase-notification-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.firebase-notification h3{margin:0;font:800 14px Manrope;color:#253553}.firebase-notification p{margin:9px 0 0;color:#5f6b82;font-size:12px;line-height:1.65;white-space:pre-wrap}.firebase-notification time{font:10px 'DM Mono';color:#768197;white-space:nowrap}.firebase-comms{margin:0 0 16px;padding:19px;border:1px solid #d7e1f2;border-radius:16px;background:linear-gradient(145deg,#f6f9ff,#fff)}.firebase-comms h2{margin:0;font:800 16px Manrope;color:#243454}.firebase-comms p{font-size:11px;line-height:1.55;color:#67738a;margin:6px 0 0}.firebase-comms-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.firebase-comms-grid label{display:grid;gap:6px;color:#49566f;font-size:10px;font-weight:700}.firebase-comms-grid input,.firebase-comms-grid select,.firebase-comms-grid textarea{width:100%;border:1px solid #dce2ed;border-radius:9px;padding:10px;background:#fff;color:#35425d;font-size:11px}.firebase-comms-grid textarea{min-height:94px;resize:vertical}.firebase-comms-grid .wide{grid-column:1/-1}.firebase-comms-check{display:flex!important;grid-template-columns:auto 1fr;align-items:center;gap:8px!important;font-size:11px!important}.firebase-comms-check input{width:auto}.firebase-comms-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:13px}.firebase-comms-actions small{color:#69768d;font-size:10px;line-height:1.45}
+    @media(max-width:800px){.firebase-admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.firebase-admin-head,.firebase-detail-head,.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{flex-direction:column}.firebase-users{padding:13px}.firebase-users-toolbar{flex-wrap:wrap}.firebase-users-toolbar input{flex-basis:100%}.firebase-profile-grid,.firebase-comms-grid{grid-template-columns:1fr}.firebase-profile-field.wide,.firebase-comms-grid .wide{grid-column:auto}.firebase-comms-actions{align-items:flex-start;flex-direction:column}}
   </style>`);
 
   window.showFirebaseAdminDashboard = function () {
     if (!window.firebaseIsAdmin) return;
     document.getElementById("overview")?.classList.add("hide");
     document.getElementById("dayview")?.classList.remove("show");
+    hideWorkspacePanels();
     const panel = document.getElementById("firebaseAdminDashboard");
     if (panel) panel.hidden = false;
     const crumb = document.getElementById("crumb");
@@ -126,11 +142,38 @@ function installPortalControls() {
     document.querySelectorAll(".side .nav button").forEach(button => button.classList.toggle("active", button.id === "navAdmin"));
     startAdminListener();
   };
-  document.getElementById("navCert")?.addEventListener("click", () => { document.getElementById("firebaseAdminDashboard").hidden = true; });
+  function hideWorkspacePanels() {
+    document.getElementById("firebaseAdminDashboard")?.setAttribute("hidden", "");
+    document.getElementById("firebaseProfilePanel")?.setAttribute("hidden", "");
+    document.getElementById("firebaseNotificationsPanel")?.setAttribute("hidden", "");
+  }
+  window.showFirebaseProfile = function () {
+    document.getElementById("overview")?.classList.add("hide");
+    document.getElementById("dayview")?.classList.remove("show");
+    hideWorkspacePanels();
+    const panel = document.getElementById("firebaseProfilePanel");
+    if (panel) panel.hidden = false;
+    const crumb = document.getElementById("crumb");
+    if (crumb) crumb.textContent = "My profile";
+    document.querySelectorAll(".side .nav button").forEach(button => button.classList.toggle("active", button.id === "navProfile"));
+    renderProfilePanel();
+  };
+  window.showFirebaseNotifications = function () {
+    document.getElementById("overview")?.classList.add("hide");
+    document.getElementById("dayview")?.classList.remove("show");
+    hideWorkspacePanels();
+    const panel = document.getElementById("firebaseNotificationsPanel");
+    if (panel) panel.hidden = false;
+    const crumb = document.getElementById("crumb");
+    if (crumb) crumb.textContent = "Course updates";
+    document.querySelectorAll(".side .nav button").forEach(button => button.classList.toggle("active", button.id === "navNotifications"));
+    renderNotificationsPanel();
+  };
+  document.getElementById("navCert")?.addEventListener("click", () => { hideWorkspacePanels(); });
   const oldShowHome = window.showHome;
-  if (oldShowHome) window.showHome = function () { document.getElementById("firebaseAdminDashboard").hidden = true; oldShowHome(); };
+  if (oldShowHome) window.showHome = function () { hideWorkspacePanels(); oldShowHome(); };
   const oldOpenDay = window.openDay;
-  if (oldOpenDay) window.openDay = function (...args) { document.getElementById("firebaseAdminDashboard").hidden = true; oldOpenDay(...args); };
+  if (oldOpenDay) window.openDay = function (...args) { hideWorkspacePanels(); oldOpenDay(...args); };
 }
 
 function loginMessage(message, isError = false) {
@@ -150,6 +193,93 @@ function readableError(error) {
   if (code.includes("popup-blocked")) return "Allow the Google sign-in pop-up, then try again.";
   if (code.includes("permission-denied")) return "Sign-in worked, but Firestore access is not configured. Deploy firestore.rules and create the database.";
   return error?.message || "Firebase could not complete that request. Please try again.";
+}
+
+function activeLearnerState() {
+  return window.getLearnerStateForFirebase?.() || null;
+}
+
+function profileFromState(state) {
+  const profile = state?.profile || {};
+  return {
+    fullName: String(profile.fullName || state?.profileName || state?.name || currentUser?.displayName || currentUser?.email || "").trim().slice(0, 120),
+    linkedinUrl: String(profile.linkedinUrl || "").trim().slice(0, 300),
+    githubUrl: String(profile.githubUrl || "").trim().slice(0, 300),
+    domain: String(profile.domain || "").trim().slice(0, 120),
+    collegeName: String(profile.collegeName || "").trim().slice(0, 180)
+  };
+}
+
+function renderProfilePanel() {
+  const root = document.getElementById("firebaseProfilePanel");
+  if (!root) return;
+  const profile = profileFromState(activeLearnerState());
+  const signed = !!currentUser;
+  root.innerHTML = `<header class="firebase-profile-head"><div><span class="eyebrow" style="color:#5368c9">LEARNER IDENTITY</span><h1 id="firebaseProfileTitle">My profile</h1><p>Use your correct professional name on badges and certificates. Add the links and details you want your course team to see.</p></div><span class="firebase-live-indicator">${signed ? "CLOUD SYNC ACTIVE" : "DEVICE PROFILE"}</span></header>
+    <section class="firebase-profile-card"><div class="firebase-profile-grid"><div class="firebase-profile-field wide"><label for="profileFullName">Full name for badges and certificates</label><input id="profileFullName" maxlength="120" value="${escapeHTML(profile.fullName)}" placeholder="Your professional name"><small>This replaces the name shown on newly generated badges and certificates.</small></div><div class="firebase-profile-field"><label for="profileLinkedIn">LinkedIn profile</label><input id="profileLinkedIn" maxlength="300" value="${escapeHTML(profile.linkedinUrl)}" placeholder="linkedin.com/in/your-profile"></div><div class="firebase-profile-field"><label for="profileGitHub">GitHub profile</label><input id="profileGitHub" maxlength="300" value="${escapeHTML(profile.githubUrl)}" placeholder="github.com/your-handle"></div><div class="firebase-profile-field"><label for="profileDomain">Engineering domain</label><input id="profileDomain" maxlength="120" value="${escapeHTML(profile.domain)}" placeholder="e.g., Cloud, AI/ML, Cybersecurity"></div><div class="firebase-profile-field"><label for="profileCollege">College name</label><input id="profileCollege" maxlength="180" value="${escapeHTML(profile.collegeName)}" placeholder="Your college or university"></div></div><button class="action" id="saveLearnerProfile">Save profile</button><p class="firebase-profile-sync">${signed ? "Your profile is synced to the protected admin record and is available on your next device sign-in." : "Sign in with Google to sync this profile and make it available to the course team."}</p></section>`;
+  document.getElementById("saveLearnerProfile")?.addEventListener("click", saveLearnerProfile);
+}
+
+function saveLearnerProfile() {
+  const fullName = String(document.getElementById("profileFullName")?.value || "").trim();
+  if (fullName.length < 2) {
+    window.toast?.("Please enter your full professional name for certificates.");
+    document.getElementById("profileFullName")?.focus();
+    return;
+  }
+  const state = activeLearnerState();
+  if (!state) return;
+  state.profile = {
+    fullName,
+    linkedinUrl: String(document.getElementById("profileLinkedIn")?.value || "").trim(),
+    githubUrl: String(document.getElementById("profileGitHub")?.value || "").trim(),
+    domain: String(document.getElementById("profileDomain")?.value || "").trim(),
+    collegeName: String(document.getElementById("profileCollege")?.value || "").trim()
+  };
+  state.profileName = fullName;
+  state.name = fullName;
+  if (typeof window.save === "function") window.save();
+  else if (currentUser) window.firebaseQueueProgress?.(state);
+  renderProfilePanel();
+  window.toast?.(currentUser ? "Profile saved and synced to your course record." : "Profile saved on this device.");
+}
+
+async function hydrateProfileFromCloud(user) {
+  if (!db || !window.firebaseGetDoc || !user?.uid) return;
+  const snapshot = await window.firebaseGetDoc(window.firebaseDoc(db, "users", user.uid));
+  if (!snapshot.exists()) return;
+  const data = snapshot.data();
+  const fields = ["displayName", "linkedinUrl", "githubUrl", "domain", "collegeName"];
+  if (!fields.some(field => String(data[field] || "").trim())) return;
+  const state = activeLearnerState();
+  if (!state) return;
+  state.profile = {
+    fullName: String(data.displayName || state.profile?.fullName || state.name || "").trim(),
+    linkedinUrl: String(data.linkedinUrl || "").trim(),
+    githubUrl: String(data.githubUrl || "").trim(),
+    domain: String(data.domain || "").trim(),
+    collegeName: String(data.collegeName || "").trim()
+  };
+  if (state.profile.fullName) {
+    state.profileName = state.profile.fullName;
+    state.name = state.profile.fullName;
+  }
+  if (typeof window.save === "function") window.save();
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById("notificationNavCount");
+  if (!badge) return;
+  const count = myNotifications.length;
+  badge.hidden = count === 0;
+  badge.textContent = count > 99 ? "99+" : String(count);
+}
+
+function renderNotificationsPanel() {
+  const root = document.getElementById("firebaseNotificationsPanel");
+  if (!root) return;
+  const cards = myNotifications.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course update").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course update")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p></article>`).join("");
+  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h1 id="firebaseNotificationsTitle">Your updates</h1><p>Announcements and reminders sent by the course team appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE UPDATES" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No course updates yet. New reminders will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
 }
 
 function dateValue(value) {
@@ -185,6 +315,8 @@ function latestAttempt(state) {
 }
 
 function makeSummary(user, state, login = false) {
+  const profile = state?.profile || {};
+  const profileName = String(profile.fullName || state?.profileName || state?.name || user.displayName || user.email || "Learner").trim().slice(0, 120);
   const days = Array.from({ length: 5 }, (_, day) => day);
   const completedDays = Object.entries(state?.dayAwards || {}).filter(([, completed]) => !!completed).map(([day]) => Number(day)).filter(day => Number.isInteger(day) && day >= 0 && day < 5);
   let sectionsCompleted = 0;
@@ -212,9 +344,13 @@ function makeSummary(user, state, login = false) {
   const now = new Date();
   const result = {
     uid: user.uid,
-    displayName: String(user.displayName || user.email || "Learner").slice(0, 120),
+    displayName: profileName,
     email: String(user.email || "").slice(0, 254),
     photoURL: String(user.photoURL || "").slice(0, 1000),
+    linkedinUrl: String(profile.linkedinUrl || "").trim().slice(0, 300),
+    githubUrl: String(profile.githubUrl || "").trim().slice(0, 300),
+    domain: String(profile.domain || "").trim().slice(0, 120),
+    collegeName: String(profile.collegeName || "").trim().slice(0, 180),
     lastActivityAt: window.firebaseServerTimestamp(),
     lastAttemptAt: attempt ? window.firebaseTimestampFromDate(attempt.date) : null,
     lastAttemptLabel: attempt?.label || "No assessment attempts yet",
@@ -346,14 +482,17 @@ function renderAdminDashboard(fromCache = false) {
   const selectedAttendance = selected ? attendanceFor(selected.id).slice().sort((a, b) => String(b.sessionDate || "").localeCompare(String(a.sessionDate || ""))) : [];
   const feedbackRows = selectedFeedback.map(item => `<tr><td>Day ${item.day}</td><td>${item.contentRating} / 5</td><td>${item.deliveryRating} / 5</td><td>${escapeHTML(item.comment || "—")}</td><td>${escapeHTML(formatDate(item.submittedAt))}</td></tr>`).join("");
   const attendanceRows = selectedAttendance.map(item => `<tr><td>${escapeHTML(item.sessionDate || "—")}</td><td>Day ${item.day}</td><td>${escapeHTML(formatDate(item.punchedInAt))}</td><td>${escapeHTML(formatDate(item.punchedOutAt))}</td><td>${item.punchedOutAt ? "Complete" : "In progress"}</td></tr>`).join("");
+  const recipientOptions = filtered.map(user => `<option value="${escapeHTML(user.id)}">${escapeHTML(user.displayName || "Learner")} · ${escapeHTML(user.email || "No email")}</option>`).join("");
+  const communications = `<section class="firebase-comms"><header class="firebase-comms-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h2>Send a reminder or announcement</h2><p>Send a targeted message, or broadcast to all learners in the current filtered list. In-app updates are delivered live; optional emails enter the protected Firebase mail queue.</p></div><span class="firebase-live-indicator">ADMIN ONLY</span></header><div class="firebase-comms-grid"><label>Recipients<select id="adminMessageTarget"><option value="all">All current results · ${filtered.length} learner${filtered.length === 1 ? "" : "s"}</option>${recipientOptions}</select></label><label>Message type<select id="adminMessageKind"><option value="Reminder">Reminder</option><option value="Announcement">Announcement</option><option value="Session update">Session update</option></select></label><label class="wide">Subject<input id="adminMessageSubject" maxlength="140" placeholder="e.g., Day 2 post-assessment opens at 4 PM"></label><label class="wide">Message<textarea id="adminMessageBody" maxlength="2000" placeholder="Write the reminder, instruction, or course update learners should receive."></textarea></label><label class="wide firebase-comms-check"><input id="adminMessageEmail" type="checkbox" checked><span>Queue an email copy for each recipient</span></label></div><div class="firebase-comms-actions"><small>For email delivery, configure Firebase Trigger Email with your approved SMTP provider. Until then, in-app updates still deliver live.</small><button class="action" id="sendCourseCommunication">Send to learners</button></div></section>`;
   const details = selected ? `<section class="firebase-detail"><header class="firebase-detail-head"><div><span class="eyebrow" style="color:#5368c9">INDIVIDUAL LEARNER RECORD</span><h2>${escapeHTML(selected.displayName || "Learner")}</h2><p>${escapeHTML(selected.email || "")} · ${Number(selected.xp) || 0} XP · ${(selected.completedDays || []).length}/5 days</p></div><button class="action secondary" id="closeAdminDetail">Close detail</button></header><div class="firebase-detail-scroll"><h3>Day-by-day performance</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Sections</th><th>Pre-assessment</th><th>Post-assessment</th><th>Spin challenge</th><th>Notes / assignment</th><th>Badge</th></tr></thead><tbody>${detailRows || `<tr><td colspan="7" class="firebase-empty">Daily progress records are syncing. Refresh in a moment.</td></tr>`}</tbody></table></div><h3>Daily learner feedback</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Content</th><th>Delivery</th><th>Comment</th><th>Submitted</th></tr></thead><tbody>${feedbackRows || `<tr><td colspan="5" class="firebase-empty">No feedback submitted yet.</td></tr>`}</tbody></table></div><h3>Attendance punches</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Date</th><th>Session</th><th>Punch in</th><th>Punch out</th><th>Status</th></tr></thead><tbody>${attendanceRows || `<tr><td colspan="5" class="firebase-empty">No attendance punches recorded yet.</td></tr>`}</tbody></table></div></div></section>` : "";
   root.innerHTML = `<header class="firebase-admin-head"><div><span class="eyebrow" style="color:#5368c9">ADMIN · LIVE LEARNER OPERATIONS</span><h1 id="firebaseAdminTitle">Learner performance</h1><p>Live individual progress, assessment outcomes, feedback and session attendance. Learner notes and assignment text remain private.</p></div><span class="firebase-live-indicator">${fromCache ? "CACHED SNAPSHOT" : "LIVE UPDATES"}</span></header>
     <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminAttendance.length}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminFeedback.length}</strong></article></div>
-    <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("contentRating")} / 5 · average delivery rating: ${ratingAverage("deliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>
+    <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("contentRating")} / 5 · average delivery rating: ${ratingAverage("deliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>${communications}
     <section class="firebase-users"><div class="panelhead"><div><h2>All learner records</h2><p class="assessment-sub">Open an individual profile for daily scores, notes/assignment completion, feedback, and attendance punches.</p></div></div><div class="firebase-users-toolbar"><input id="adminSearch" type="search" placeholder="Filter by learner name or email" aria-label="Filter learner records"><button class="action" id="downloadAdminCsv">Download performance CSV</button><button class="action secondary" id="downloadActivityCsv">Download feedback & attendance CSV</button></div><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Learner</th><th>Last sign-in</th><th>Last attempt</th><th>Registered</th><th>Days</th><th>Sections</th><th>Assessment pass / attempts</th><th>Mock passes</th><th>Attendance</th><th>Content rating</th><th>Delivery rating</th><th>Badges</th><th>XP</th><th>Last activity</th></tr></thead><tbody>${rows || `<tr><td colspan="14" class="firebase-empty">${adminUsers.length ? "No learners match this filter." : "No Google learner profiles are recorded yet."}</td></tr>`}</tbody></table></div><p class="firebase-sync-note">Live Firestore listeners · ${new Date().toLocaleTimeString()} · Learner progress, feedback and punches update as they are saved.</p></section>${details}`;
   document.getElementById("adminSearch")?.addEventListener("input", () => renderAdminDashboard(fromCache));
   document.getElementById("downloadAdminCsv")?.addEventListener("click", downloadAdminCSV);
   document.getElementById("downloadActivityCsv")?.addEventListener("click", downloadAdminActivityCSV);
+  document.getElementById("sendCourseCommunication")?.addEventListener("click", sendCourseCommunication);
   document.getElementById("closeAdminDetail")?.addEventListener("click", () => { adminDetailUnsubscribe?.(); adminDetailUnsubscribe = null; selectedAdminUid = null; adminDayRecords = []; renderAdminDashboard(fromCache); });
   root.querySelectorAll("[data-learner-uid]").forEach(button => button.addEventListener("click", () => openAdminLearnerDetail(button.dataset.learnerUid)));
 }
@@ -390,6 +529,65 @@ function downloadAdminActivityCSV() {
   link.download = `digital-enablement-attendance-feedback-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function sendCourseCommunication() {
+  if (!window.firebaseIsAdmin || !currentUser || !db || !window.firebaseWriteBatch) return;
+  const target = document.getElementById("adminMessageTarget")?.value || "all";
+  const kind = String(document.getElementById("adminMessageKind")?.value || "Reminder").trim().slice(0, 80);
+  const subject = String(document.getElementById("adminMessageSubject")?.value || "").trim().slice(0, 140);
+  const message = String(document.getElementById("adminMessageBody")?.value || "").trim().slice(0, 2000);
+  const includeEmail = !!document.getElementById("adminMessageEmail")?.checked;
+  const query = (document.getElementById("adminSearch")?.value || "").trim().toLowerCase();
+  const filtered = adminUsers.filter(user => `${user.displayName || ""} ${user.email || ""}`.toLowerCase().includes(query));
+  const recipients = target === "all" ? filtered : adminUsers.filter(user => user.id === target);
+  if (!subject || !message) {
+    window.toast?.("Add both a subject and a message before sending.");
+    return;
+  }
+  if (!recipients.length) {
+    window.toast?.("Choose at least one learner to receive this update.");
+    return;
+  }
+  const button = document.getElementById("sendCourseCommunication");
+  if (button) { button.disabled = true; button.textContent = "Sending…"; }
+  try {
+    const stamp = Date.now();
+    const chunks = [];
+    for (let offset = 0; offset < recipients.length; offset += 200) chunks.push(recipients.slice(offset, offset + 200));
+    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      const batch = window.firebaseWriteBatch(db);
+      chunks[chunkIndex].forEach((recipient, index) => {
+        const id = `${stamp}-${chunkIndex}-${index}`;
+        batch.set(window.firebaseDoc(db, "users", recipient.id, "notifications", `notice-${id}`), {
+          uid: recipient.id,
+          title: subject,
+          message,
+          kind,
+          senderName: String(currentUser.displayName || currentUser.email || "Course team").slice(0, 120),
+          createdAt: window.firebaseServerTimestamp()
+        });
+        if (includeEmail && recipient.email) {
+          batch.set(window.firebaseDoc(db, "mail", `course-${id}`), {
+            to: recipient.email,
+            recipientUid: recipient.id,
+            source: "digital-enablement-admin",
+            createdAt: window.firebaseServerTimestamp(),
+            message: { subject, text: message }
+          });
+        }
+      });
+      await batch.commit();
+    }
+    window.toast?.(`Update sent to ${recipients.length} learner${recipients.length === 1 ? "" : "s"}.`);
+    const body = document.getElementById("adminMessageBody");
+    if (body) body.value = "";
+  } catch (error) {
+    console.error("Course communication failed", error);
+    window.toast?.(readableError(error));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Send to learners"; }
+  }
 }
 
 function openAdminLearnerDetail(uid) {
@@ -505,8 +703,10 @@ window.firebasePunchAttendance = async (day, action) => {
 function startLearnerActivityListeners(user) {
   myFeedbackUnsubscribe?.();
   myAttendanceUnsubscribe?.();
+  myNotificationsUnsubscribe?.();
   myFeedback = {};
   myAttendance = {};
+  myNotifications = [];
   myFeedbackUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "feedback"), snapshot => {
     myFeedback = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyFeedback?.(day);
@@ -514,6 +714,11 @@ function startLearnerActivityListeners(user) {
   myAttendanceUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "attendance"), snapshot => {
     myAttendance = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyAttendance?.(day);
+  }, error => window.firebaseSetCloudStatus(readableError(error), true));
+  myNotificationsUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "notifications"), snapshot => {
+    myNotifications = snapshot.docs.map(item => item.data()).sort((a, b) => (dateValue(b.createdAt)?.getTime() || 0) - (dateValue(a.createdAt)?.getTime() || 0));
+    updateNotificationBadge();
+    if (!document.getElementById("firebaseNotificationsPanel")?.hidden) renderNotificationsPanel();
   }, error => window.firebaseSetCloudStatus(readableError(error), true));
 }
 
@@ -540,9 +745,11 @@ try {
   auth = authSdk.getAuth(app);
   db = firestoreSdk.getFirestore(app);
   window.firebaseDoc = firestoreSdk.doc;
+  window.firebaseGetDoc = firestoreSdk.getDoc;
   window.firebaseSetDoc = firestoreSdk.setDoc;
   window.firebaseCollection = firestoreSdk.collection;
   window.firebaseCollectionGroup = firestoreSdk.collectionGroup;
+  window.firebaseWriteBatch = firestoreSdk.writeBatch;
   window.firebaseOnSnapshot = firestoreSdk.onSnapshot;
   window.firebaseServerTimestamp = firestoreSdk.serverTimestamp;
   window.firebaseTimestampFromDate = firestoreSdk.Timestamp.fromDate;
@@ -577,10 +784,14 @@ try {
     if (!user) {
       myFeedbackUnsubscribe?.();
       myAttendanceUnsubscribe?.();
+      myNotificationsUnsubscribe?.();
       myFeedbackUnsubscribe = null;
       myAttendanceUnsubscribe = null;
+      myNotificationsUnsubscribe = null;
       myFeedback = {};
       myAttendance = {};
+      myNotifications = [];
+      updateNotificationBadge();
       setAdminAccess(false);
       if (previous) window.deactivateFirebaseLearner?.(previous.uid);
       return;
@@ -590,6 +801,7 @@ try {
       const isAdmin = token.claims.admin === true;
       setAdminAccess(isAdmin);
       window.activateFirebaseLearner?.(user, isAdmin);
+      await hydrateProfileFromCloud(user);
       startLearnerActivityListeners(user);
       latestState = window.getLearnerStateForFirebase?.() || {};
       await syncNow(true);

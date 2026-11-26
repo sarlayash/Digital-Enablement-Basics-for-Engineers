@@ -17,6 +17,7 @@ service cloud.firestore {
       return request.resource.data.uid == userId
         && request.resource.data.keys().hasOnly([
           'uid', 'displayName', 'email', 'photoURL', 'createdAt',
+          'linkedinUrl', 'githubUrl', 'domain', 'collegeName',
           'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
           'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
           'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
@@ -24,6 +25,7 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasAll([
           'uid', 'displayName', 'email', 'photoURL', 'createdAt',
+          'linkedinUrl', 'githubUrl', 'domain', 'collegeName',
           'lastLoginAt', 'lastActivityAt', 'lastAttemptAt', 'lastAttemptLabel',
           'xp', 'completedDays', 'badges', 'sectionsCompleted', 'sectionsTotal',
           'assessmentPasses', 'assessmentAttempts', 'mockTestsPassed',
@@ -33,6 +35,10 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.photoURL is string
+        && request.resource.data.linkedinUrl is string && request.resource.data.linkedinUrl.size() <= 300
+        && request.resource.data.githubUrl is string && request.resource.data.githubUrl.size() <= 300
+        && request.resource.data.domain is string && request.resource.data.domain.size() <= 120
+        && request.resource.data.collegeName is string && request.resource.data.collegeName.size() <= 180
         && request.resource.data.createdAt is timestamp
         && request.resource.data.lastLoginAt is timestamp
         && request.resource.data.lastActivityAt is timestamp
@@ -148,6 +154,45 @@ service cloud.firestore {
         && (request.resource.data.punchedOutAt == null || request.resource.data.punchedOutAt is timestamp)
         && request.resource.data.updatedAt is timestamp;
       allow delete: if false;
+    }
+
+    match /users/{userId}/notifications/{notificationId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid', 'title', 'message', 'kind', 'senderName', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'title', 'message', 'kind', 'senderName', 'createdAt'
+        ])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 140
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 2000
+        && request.resource.data.kind is string && request.resource.data.kind.size() <= 80
+        && request.resource.data.senderName is string && request.resource.data.senderName.size() <= 120
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if false;
+    }
+
+    match /mail/{mailId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly([
+          'to', 'recipientUid', 'source', 'createdAt', 'message'
+        ])
+        && request.resource.data.keys().hasAll([
+          'to', 'recipientUid', 'source', 'createdAt', 'message'
+        ])
+        && request.resource.data.to is string && request.resource.data.to.size() > 3 && request.resource.data.to.size() <= 254
+        && request.resource.data.recipientUid is string
+        && request.resource.data.source == 'digital-enablement-admin'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.message is map
+        && request.resource.data.message.keys().hasOnly(['subject', 'text'])
+        && request.resource.data.message.keys().hasAll(['subject', 'text'])
+        && request.resource.data.message.subject is string && request.resource.data.message.subject.size() > 0 && request.resource.data.message.subject.size() <= 140
+        && request.resource.data.message.text is string && request.resource.data.message.text.size() > 0 && request.resource.data.message.text.size() <= 2000;
+      allow update, delete: if false;
     }
   }
 }
