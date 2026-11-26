@@ -1,12 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "engineer-field-guide-pwa-v4";
+const CACHE_NAME = "engineer-field-guide-pwa-v5";
 const APP_FILES = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/pwa.js",
-  "./assets/daily-learning.js?v=voice-mocks-capstones-20261126",
+  "./assets/daily-learning.js?v=virtual-labs-20261126",
   "./assets/cloud-hero.png",
   "./assets/security-hero.png",
   "./assets/ai-hero.png",
