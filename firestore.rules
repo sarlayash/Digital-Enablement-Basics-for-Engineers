@@ -66,5 +66,88 @@ service cloud.firestore {
       allow create, update: if isOwner(userId) && validLearnerSummary(userId);
       allow delete: if false;
     }
+
+    match /users/{userId}/days/{dayId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid', 'day', 'completedSections', 'sectionsTotal',
+          'preAttempts', 'prePassed', 'preBest', 'postAttempts', 'postPassed',
+          'postBest', 'wheelQuestions', 'notesSaved', 'assignmentSubmitted',
+          'badgeEarned', 'dayComplete', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'day', 'completedSections', 'sectionsTotal',
+          'preAttempts', 'prePassed', 'preBest', 'postAttempts', 'postPassed',
+          'postBest', 'wheelQuestions', 'notesSaved', 'assignmentSubmitted',
+          'badgeEarned', 'dayComplete', 'updatedAt'
+        ])
+        && request.resource.data.day is int
+        && request.resource.data.day >= 1 && request.resource.data.day <= 5
+        && request.resource.data.completedSections is int
+        && request.resource.data.completedSections >= 0 && request.resource.data.completedSections <= 8
+        && request.resource.data.sectionsTotal == 8
+        && request.resource.data.preAttempts is int && request.resource.data.preAttempts >= 0
+        && request.resource.data.prePassed is bool
+        && request.resource.data.preBest is int && request.resource.data.preBest >= 0 && request.resource.data.preBest <= 50
+        && request.resource.data.postAttempts is int && request.resource.data.postAttempts >= 0
+        && request.resource.data.postPassed is bool
+        && request.resource.data.postBest is int && request.resource.data.postBest >= 0 && request.resource.data.postBest <= 50
+        && request.resource.data.wheelQuestions is int && request.resource.data.wheelQuestions >= 0 && request.resource.data.wheelQuestions <= 25
+        && request.resource.data.notesSaved is bool
+        && request.resource.data.assignmentSubmitted is bool
+        && request.resource.data.badgeEarned is bool
+        && request.resource.data.dayComplete is bool
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+    }
+
+    match /users/{userId}/feedback/{dayId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly([
+          'uid', 'learnerName', 'email', 'day', 'contentRating',
+          'deliveryRating', 'comment', 'submittedAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'learnerName', 'email', 'day', 'contentRating',
+          'deliveryRating', 'comment', 'submittedAt', 'updatedAt'
+        ])
+        && request.resource.data.learnerName is string
+        && request.resource.data.email is string
+        && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 5
+        && request.resource.data.contentRating is int && request.resource.data.contentRating >= 1 && request.resource.data.contentRating <= 5
+        && request.resource.data.deliveryRating is int && request.resource.data.deliveryRating >= 1 && request.resource.data.deliveryRating <= 5
+        && request.resource.data.comment is string && request.resource.data.comment.size() <= 1000
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+    }
+
+    match /users/{userId}/attendance/{attendanceId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly([
+          'uid', 'learnerName', 'email', 'day', 'sessionDate',
+          'punchedInAt', 'punchedOutAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'learnerName', 'email', 'day', 'sessionDate',
+          'punchedInAt', 'punchedOutAt', 'updatedAt'
+        ])
+        && request.resource.data.learnerName is string
+        && request.resource.data.email is string
+        && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 5
+        && request.resource.data.sessionDate is string && request.resource.data.sessionDate.size() == 10
+        && request.resource.data.punchedInAt is timestamp
+        && (request.resource.data.punchedOutAt == null || request.resource.data.punchedOutAt is timestamp)
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+    }
   }
 }

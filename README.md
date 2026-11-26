@@ -27,6 +27,8 @@ Powered by Mentor Kapil. With gratitude to Galgotias University and L&T EduTech.
 
 Learners can use Google sign-in for an account that syncs a performance summary to Cloud Firestore. Guest sign-in remains available for device-only testing and is not included in administrator reports. The admin dashboard listens to Firestore changes and provides learner search, completion and assessment analysis, last sign-in, last attempt, recent activity, XP, badges, and CSV download. It stores counts and assessment summaries, not learner notes or assignment text. As the portal currently grades assessments in the browser, these summaries are useful for progress tracking but are not tamper-proof academic records.
 
+Google-authenticated learners can also punch in and punch out for each day's session and submit one revisable day-level feedback entry with separate content and delivery ratings. Administrators receive these changes live, can open a learner's individual day-by-day progress record, and can export performance or attendance-and-feedback CSV reports. Attendance timestamps are recorded by Firestore; an attendance punch confirms portal participation and should be reconciled with the physical-session register where formal attendance is required.
+
 The Firebase web configuration is in `assets/firebase-portal.js`. Before Google sign-in or cloud reporting works, configure the Firebase project:
 
 1. Deploy the included Google provider configuration with `firebase deploy --only auth --project digital-enablement`, then add `sarlayash.github.io` to Authentication's authorized domains in Firebase Console.
