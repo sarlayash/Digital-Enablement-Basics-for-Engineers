@@ -39,7 +39,8 @@ jobs:
               --header "Accept: application/vnd.github+json" \
               "${artifact_api}" \
               | jq --exit-status '.artifacts[]? | select(.name == "github-pages" and .expired == false)' >/dev/null; then
-              echo "github-pages artifact is available."
+              echo "github-pages artifact is visible. Waiting for the Pages deployment service to index it."
+              sleep 35
               exit 0
             fi
             echo "Waiting for github-pages artifact indexing (${attempt}/12)."
@@ -50,3 +51,4 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
