@@ -16,7 +16,7 @@ Powered by Mentor Kapil. With gratitude to Galgotias University and L&T EduTech.
 
 ## Daily learning flow
 
-- The portal is open daily from 8:00 AM to 8:00 PM local time and locks for maintenance outside those hours. Pre-assessments are open from 9:00 AM to 12:00 noon; post-assessments are open from 4:00 PM to 7:00 PM.
+- The portal and both pre- and post-assessments are open daily from 8:00 AM to 8:00 PM local time and lock for maintenance outside those hours.
 - Each phase uses the same 50-question day bank, has one retake, and uses a 70% pass mark.
 - The daily spin challenge draws 25 distinct questions from the day bank.
 - For local testing only, use portalPreview=1 and assessmentPreview=1 on a local file or localhost URL; preview bypasses are disabled on the public site.
