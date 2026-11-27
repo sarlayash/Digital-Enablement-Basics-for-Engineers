@@ -1,11 +1,12 @@
 "use strict";
 
-const CACHE_NAME = "engineer-field-guide-pwa-v13";
+const CACHE_NAME = "engineer-field-guide-pwa-v14";
 const APP_FILES = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./assets/pwa.js",
+  "./assets/hourly-reminders.js?v=hourly-20261127",
   "./assets/daily-learning.js?v=mobile-ux-20261127",
   "./assets/firebase-bridge.js?v=profile-20261126",
   "./assets/firebase-portal.js?v=admin-listener-fix-20261126",
@@ -15,6 +16,7 @@ const APP_FILES = [
   "./assets/iot-blockchain-hero.png",
   "./assets/future-tech-hero.png",
   "./assets/landing-banner.png",
+  "./assets/gu-led-banner.png",
   "./assets/pwa-icon-192.png",
   "./assets/pwa-icon-512.png"
 ];
@@ -74,3 +76,12 @@ self.addEventListener("fetch", event => {
   })());
 });
 
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
+    const app = clients.find(client => client.url.startsWith(self.registration.scope));
+    if (app) return app.focus();
+    return self.clients.openWindow(new URL("./", self.registration.scope).href);
+  }));
+});
