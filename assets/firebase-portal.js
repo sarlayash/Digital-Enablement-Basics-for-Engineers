@@ -799,10 +799,10 @@ async function loadAdminRosterScores() {
             if (scores.length) {
               candidate = scores.reduce((latest, item) => {
                 const at = dateValue(item.at)?.getTime() || 0;
-                return !latest || at >= latest.at ? { score: Number(item.score) || 0, at, day: Number(record.day) + 1, legacy: false } : latest;
+                return !latest || at >= latest.at ? { score: Number(item.score) || 0, at, day: Number(record.day) || null, legacy: false } : latest;
               }, null);
             } else if (attempts > 0 && record[phase + "Best"] != null) {
-              candidate = { score: Number(record[phase + "Best"]) || 0, at: dateValue(record.updatedAt)?.getTime() || 0, day: Number(record.day) + 1, legacy: true };
+              candidate = { score: Number(record[phase + "Best"]) || 0, at: dateValue(record.updatedAt)?.getTime() || 0, day: Number(record.day) || null, legacy: true };
             }
             if (candidate && (!result[phase] || candidate.at >= result[phase].at)) result[phase] = candidate;
           }
