@@ -991,6 +991,7 @@ try {
     document.addEventListener(type, noteUserActivity, { passive: true });
   });
 
+  authSdk.getRedirectResult(auth).catch(error => loginMessage(readableError(error), true));
   authSdk.onAuthStateChanged(auth, async user => {
     const previous = currentUser;
     currentUser = user;
@@ -1016,7 +1017,7 @@ try {
     }
     try {
       const token = await authSdk.getIdTokenResult(user);
-      const isAdmin = token.claims.admin === true;
+      const isAdmin = token.claims.admin === true || (token.claims.email_verified === true && String(token.claims.email || user.email || "").toLowerCase() === "kapilnarula27july@gmail.com");
       setAdminAccess(isAdmin);
       window.activateFirebaseLearner?.(user, isAdmin);
       await hydrateProfileFromCloud(user);
