@@ -198,10 +198,10 @@
   }
   function windowStatus(name) {
     if (PREVIEW) return {open:true,label:"Preview mode · time window bypassed"};
-    var d=new Date(),m=d.getHours()*60+d.getMinutes();
-    var start=8*60, end=20*60;
-    if(m>=start&&m<end) return {open:true,label:"Open now · closes at 8:00 PM"};
-    return {open:false,label:"Available daily · 8:00 AM–8:00 PM"};
+    var m=window.portalIndiaNow?window.portalIndiaNow().minutes:(new Date().getHours()*60+new Date().getMinutes());
+    var start=8*60,end=23*60;
+    if(m>=start&&m<end) return {open:true,label:"Open now · closes at 11:00 PM IST"};
+    return {open:false,label:"Available daily · 8:00 AM–11:00 PM IST"};
   }
   function phaseCard(day,name) {
     var s=phase(day,name), w=windowStatus(name), title=name==="pre"?"Pre-assessment":"Post-assessment";
@@ -323,7 +323,7 @@
     "</style>");
   document.body.insertAdjacentHTML("beforeend",'<div class="assess-overlay" id="assessmentModal" role="dialog" aria-modal="true"></div><div class="certificate-overlay" id="certificateModal" role="dialog" aria-modal="true"></div>');
 
-  function portalAllowed(day) { var preview=typeof PORTAL_PREVIEW!=="undefined"&&PORTAL_PREVIEW; var hr=new Date().getHours(); return (preview||(hr>=8&&hr<20))&&(typeof access!=="function"||access(day).status!=="locked"); } function assessmentWindowOpen(name) { return windowStatus(name).open; }
+  function portalAllowed(day) { var preview=typeof PORTAL_PREVIEW!=="undefined"&&PORTAL_PREVIEW; var m=window.portalIndiaNow?window.portalIndiaNow().minutes:(new Date().getHours()*60+new Date().getMinutes()); return (preview||(m>=480&&m<1380))&&(typeof access!=="function"||access(day).status!=="locked"); } function assessmentWindowOpen(name) { return windowStatus(name).open; }
   function startAttempt(day,name) {
     var s=phase(day,name), ids=shuffle(bank(day).map(function(_,i){return i;}));
     s.active={ids:ids,at:0,answers:{},hint:false,started:new Date().toISOString()};
@@ -331,7 +331,7 @@
   }
   window.launchAssessment=function(day,name) {
     var s=phase(day,name);
-    if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily at 8:00 AM.");return;}if(s.attempts.length>=2){window.reviewAssessment(day,name);return;}
+    if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily from 8:00 AM to 11:00 PM IST.");return;}if(s.attempts.length>=2){window.reviewAssessment(day,name);return;}
     if(!assessmentWindowOpen(name)||!portalAllowed(day)){toast("The portal or assessment window is closed. Check the daily access hours.");return;}
     if(!s.active)startAttempt(day,name);
     paintAssessment(day,name);
@@ -346,7 +346,7 @@
     var q=bank(day)[a.ids[a.at]], chosen=a.answers[q.id]||"";
     var opts=q.options.map(function(option,i){return '<label class="assess-option '+(chosen===option?"selected":"")+'"><input type="radio" name="assessmentChoice" value="'+i+'" '+(chosen===option?"checked":"")+' onchange="saveAssessmentAnswer('+day+',\''+name+'\','+i+')"><span>'+escText(option)+'</span></label>';}).join("");
     var progress=Math.round((a.at+1)/50*100);
-    document.getElementById("assessmentModal").innerHTML='<div class="assess-window"><header class="assess-head"><div><div class="eyebrow" style="color:#aebeff">DAY 0'+(day+1)+' · '+(name==="pre"?"PRE-ASSESSMENT":"POST-ASSESSMENT")+'</div><h2>50-question knowledge check</h2><p>Same question set for both phases · one retake · local-time access window</p></div><button class="assess-close" onclick="closeAssessment('+day+')">Save & close</button></header><div class="assess-progress"><i style="width:'+progress+'%"></i></div><div class="assess-body"><div class="assess-meta"><span>QUESTION '+(a.at+1)+' OF 50</span><span>'+Object.keys(a.answers).length+' ANSWERED</span></div><h3 class="assess-question">'+escText(q.q)+'</h3><div class="assess-options">'+opts+'</div><details class="assess-hint" '+(a.hint?"open":"")+'><summary>Mentor Kapil’s hint</summary><p>'+escText(q.hint)+'</p></details><div class="assess-controls"><button class="action secondary" onclick="moveAssessment('+day+',\''+name+'\',-1)" '+(a.at===0?"disabled":"")+'>← Previous</button><button class="action secondary" onclick="moveAssessment('+day+',\''+name+'\',1)" '+(a.at===49?"disabled":"")+'>Next →</button><button class="action" onclick="finishAssessment('+day+',\''+name+'\')">Submit assessment</button></div></div></div>';
+    document.getElementById("assessmentModal").innerHTML='<div class="assess-window"><header class="assess-head"><div><div class="eyebrow" style="color:#aebeff">DAY 0'+(day+1)+' · '+(name==="pre"?"PRE-ASSESSMENT":"POST-ASSESSMENT")+'</div><h2>50-question knowledge check</h2><p>Same question set for both phases · one retake · IST access window</p></div><button class="assess-close" onclick="closeAssessment('+day+')">Save & close</button></header><div class="assess-progress"><i style="width:'+progress+'%"></i></div><div class="assess-body"><div class="assess-meta"><span>QUESTION '+(a.at+1)+' OF 50</span><span>'+Object.keys(a.answers).length+' ANSWERED</span></div><h3 class="assess-question">'+escText(q.q)+'</h3><div class="assess-options">'+opts+'</div><details class="assess-hint" '+(a.hint?"open":"")+'><summary>Mentor Kapil’s hint</summary><p>'+escText(q.hint)+'</p></details><div class="assess-controls"><button class="action secondary" onclick="moveAssessment('+day+',\''+name+'\',-1)" '+(a.at===0?"disabled":"")+'>← Previous</button><button class="action secondary" onclick="moveAssessment('+day+',\''+name+'\',1)" '+(a.at===49?"disabled":"")+'>Next →</button><button class="action" onclick="finishAssessment('+day+',\''+name+'\')">Submit assessment</button></div></div></div>';
     document.getElementById("assessmentModal").classList.add("show");
     var hint=document.querySelector("#assessmentModal .assess-hint");
     if(hint)hint.addEventListener("toggle",function(){a.hint=hint.open;persist();});
@@ -380,7 +380,7 @@
     document.getElementById("assessmentModal").classList.add("show");
   };
 
-  window.spinWheel=function(day) { if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily at 8:00 AM.");return;}
+  window.spinWheel=function(day) { if(!portalAllowed(day)){toast("Portal is closed for maintenance. It opens daily from 8:00 AM to 11:00 PM IST.");return;}
     var s=wheelState(day);
     if(s.current!==null){toast("Answer the current wheel question first.");return;}
     var available=s.pool.filter(function(id){return s.seen.indexOf(id)<0;});
