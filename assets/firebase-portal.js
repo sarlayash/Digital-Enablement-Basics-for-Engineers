@@ -815,7 +815,7 @@ function autoPunchOutExpiredAttendance(uid = currentUser?.uid) {
   const now = window.portalIndiaNow();
   const jobs = [];
   Object.entries(myAttendance).forEach(([id, record]) => {
-    if (!record?.punchedInAt || record.punchedOutAt || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(record.sessionDate || ""))) return;
+    if (!record?.punchedInAt || record.punchedOutAt || !/^\d{4}-\d{2}-\d{2}$/.test(String(record.sessionDate || ""))) return;
     if (record.sessionDate > now.dateKey || (record.sessionDate === now.dateKey && now.minutes < 20 * 60)) return;
     if (autoPunchOutInFlight.has(id)) return;
     const cutoff = new Date(record.sessionDate + "T14:30:00.000Z");
