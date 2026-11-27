@@ -16,7 +16,7 @@ Powered by Mentor Kapil. With gratitude to Galgotias University and L&T EduTech.
 
 ## Daily learning flow
 
-- The portal and both pre- and post-assessments are open daily from 8:00 AM to 8:00 PM local time and lock for maintenance outside those hours.
+- The portal and both pre- and post-assessments are open daily from 8:00 AM to 11:00 PM India Standard Time and lock for maintenance outside those hours.
 - Learners can opt in to hourly browser notifications for unfinished daily tasks. Allow notifications and keep the portal open in a browser to receive these reminders.
 - Each phase uses the same 50-question day bank, has one retake, and uses a 70% pass mark.
 - The daily spin challenge draws 25 distinct questions from the day bank.
