@@ -281,8 +281,8 @@ function updateNotificationBadge() {
 function renderNotificationsPanel() {
   const root = document.getElementById("firebaseNotificationsPanel");
   if (!root) return;
-  const cards = myNotifications.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course update").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course update")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p></article>`).join("");
-  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h1 id="firebaseNotificationsTitle">My Notifications and Actions Section</h1><p>Your course messages, reminders, and actions appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE UPDATES" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No course updates yet. New reminders will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
+  const cards = myNotifications.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course notification").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course notification")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p></article>`).join("");
+  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">MY NOTIFICATIONS &amp; ACTIONS</span><h1 id="firebaseNotificationsTitle">My Notifications and Actions Section</h1><p>Your course messages, reminders, and actions appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE NOTIFICATIONS" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No notifications yet. New messages and actions will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
 }
 
 function dateValue(value) {
@@ -675,7 +675,8 @@ async function sendCourseCommunication() {
       });
       await batch.commit();
     }
-    window.toast?.("Update sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + ".");
+    const queuedEmailCount = includeEmail ? recipients.filter(recipient => recipient.email).length : 0;
+    window.toast?.("In-portal notification sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + (queuedEmailCount ? "; " + queuedEmailCount + " email " + (queuedEmailCount === 1 ? "copy queued" : "copies queued") + " for delivery." : "."));
     const body = document.getElementById("adminMessageBody");
     if (body) body.value = "";
   } catch (error) {
