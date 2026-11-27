@@ -618,6 +618,27 @@ function downloadAdminActivityCSV() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function watchMailDelivery(ref, timeoutMs = 20000) {
+  return new Promise(resolve => {
+    let unsubscribe = () => {};
+    let settled = false;
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      unsubscribe();
+      resolve(result);
+    };
+    const timeout = window.setTimeout(() => finish({ state: "PENDING", error: "" }), timeoutMs);
+    unsubscribe = window.firebaseOnSnapshot(ref, snapshot => {
+      const delivery = snapshot.data()?.delivery || {};
+      if (delivery.state === "SUCCESS" || delivery.state === "ERROR") {
+        finish({ state: delivery.state, error: String(delivery.error || "") });
+      }
+    }, error => finish({ state: "ERROR", error: readableError(error) }));
+  });
+}
+
 async function sendCourseCommunication() {
   if (!window.firebaseIsAdmin || !currentUser || !db || !window.firebaseWriteBatch) return;
   const target = document.getElementById("adminMessageTarget")?.value || "all";
@@ -660,6 +681,7 @@ async function sendCourseCommunication() {
   if (button) { button.disabled = true; button.textContent = "Sending…"; }
   try {
     const stamp = Date.now();
+    const mailRefs = [];
     const chunks = [];
     for (let offset = 0; offset < recipients.length; offset += 200) chunks.push(recipients.slice(offset, offset + 200));
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
@@ -677,7 +699,9 @@ async function sendCourseCommunication() {
           createdAt: window.firebaseServerTimestamp()
         });
         if (includeEmail && recipient.email) {
-          batch.set(window.firebaseDoc(db, "mail", "course-" + id), {
+          const mailRef = window.firebaseDoc(db, "mail", "course-" + id);
+          mailRefs.push(mailRef);
+          batch.set(mailRef, {
             to: recipient.email,
             from: MENTOR_FROM,
             replyTo: "kapilnarula27july@gmail.com",
@@ -690,10 +714,19 @@ async function sendCourseCommunication() {
       });
       await batch.commit();
     }
-    const queuedEmailCount = includeEmail ? recipients.filter(recipient => recipient.email).length : 0;
-    window.toast?.("In-portal notification sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + (queuedEmailCount ? "; " + queuedEmailCount + " email " + (queuedEmailCount === 1 ? "copy queued" : "copies queued") + " for delivery." : "."));
     const body = document.getElementById("adminMessageBody");
     if (body) body.value = "";
+    if (mailRefs.length) {
+      if (button) button.textContent = "Checking delivery…";
+      const outcomes = await Promise.all(mailRefs.map(ref => watchMailDelivery(ref, 25000)));
+      const sent = outcomes.filter(result => result.state === "SUCCESS").length;
+      const failed = outcomes.filter(result => result.state === "ERROR").length;
+      const pending = outcomes.length - sent - failed;
+      const errorText = outcomes.find(result => result.state === "ERROR" && result.error)?.error;
+      window.toast?.("Portal update sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + ". Email delivery: " + sent + " sent, " + failed + " failed, " + pending + " pending." + (errorText ? " Provider: " + errorText.slice(0, 220) : ""));
+    } else {
+      window.toast?.("In-portal notification sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + ".");
+    }
   } catch (error) {
     console.error("Course communication failed", error);
     window.toast?.(readableError(error));
@@ -741,7 +774,8 @@ async function sendTestCourseEmail() {
         if (state === "SUCCESS" || state === "ERROR") {
           clearTimeout(timeout);
           unsubscribe();
-          window.toast?.(state === "SUCCESS" ? "Test email delivered to " + recipient.email + "." : "Test email failed. Check the Firebase mail delivery error.");
+          const delivery = snapshot.data()?.delivery || {};
+          window.toast?.(state === "SUCCESS" ? "Firebase reports the test email sent to " + recipient.email + "." : "Test email failed: " + String(delivery.error || "mail provider returned ERROR").slice(0, 320));
           resolve();
         }
       }, error => {
