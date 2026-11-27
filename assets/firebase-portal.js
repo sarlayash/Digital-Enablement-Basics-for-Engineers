@@ -569,7 +569,7 @@ function displayFinalAssessmentScore(record, phase, scale) {
  const value=finalAssessmentScore(record,phase,scale);
  return value?value.score+"/"+scale+(value.legacy?" · best on record":""):"—";
 }
-function getAssessmentReportRows(dayFilter) {
+async function getAssessmentReportRows(dayFilter) {
  if(!window.firebaseGetDocs||!window.firebaseIsAdmin)throw new Error("Admin report access is unavailable.");
  const rows=[];
  for(let i=0;i<adminUsers.length;i+=20){const batch=await Promise.all(adminUsers.slice(i,i+20).map(async u=>{const s=await window.firebaseGetDocs(window.firebaseCollection(db,"users",u.id,"days"));return s.docs.map(d=>({u,d:d.data()}));}));
