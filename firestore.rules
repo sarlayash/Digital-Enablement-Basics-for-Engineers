@@ -85,8 +85,8 @@ service cloud.firestore {
         && request.resource.data.uid == userId
         && request.resource.data.keys().hasOnly([
           'uid', 'day', 'completedSections', 'sectionsTotal',
-          'preAttempts', 'prePassed', 'preBest', 'postAttempts', 'postPassed',
-          'postBest', 'wheelQuestions', 'notesSaved', 'assignmentSubmitted',
+          'preAttempts', 'prePassed', 'preBest', 'preScores', 'postAttempts', 'postPassed',
+          'postBest', 'postScores', 'mockAttempts', 'mockPassed', 'mockBest', 'mockScores', 'finalAttempts', 'finalPassed', 'finalBest', 'finalScores', 'wheelQuestions', 'notesSaved', 'assignmentSubmitted',
           'badgeEarned', 'dayComplete', 'updatedAt'
         ])
         && request.resource.data.keys().hasAll([
