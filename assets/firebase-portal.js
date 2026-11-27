@@ -90,7 +90,8 @@ function installPortalControls() {
       const notificationsButton = document.createElement("button");
       notificationsButton.type = "button";
       notificationsButton.id = "navNotifications";
-      notificationsButton.innerHTML = '◌  Updates <span class="notification-nav-count" id="notificationNavCount" hidden>0</span>';
+      notificationsButton.setAttribute("aria-label", "My Notifications and Actions Section");
+      notificationsButton.innerHTML = '◌  My Notifications <span class="notification-nav-count" id="notificationNavCount" hidden>0</span>';
       notificationsButton.addEventListener("click", () => window.showFirebaseNotifications?.());
       nav.append(notificationsButton);
       const button = document.createElement("button");
@@ -167,7 +168,7 @@ function installPortalControls() {
     const panel = document.getElementById("firebaseNotificationsPanel");
     if (panel) panel.hidden = false;
     const crumb = document.getElementById("crumb");
-    if (crumb) crumb.textContent = "Course updates";
+    if (crumb) crumb.textContent = "My Notifications and Actions Section";
     document.querySelectorAll(".side .nav button").forEach(button => button.classList.toggle("active", button.id === "navNotifications"));
     renderNotificationsPanel();
   };
@@ -281,7 +282,7 @@ function renderNotificationsPanel() {
   const root = document.getElementById("firebaseNotificationsPanel");
   if (!root) return;
   const cards = myNotifications.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course update").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course update")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p></article>`).join("");
-  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h1 id="firebaseNotificationsTitle">Your updates</h1><p>Announcements and reminders sent by the course team appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE UPDATES" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No course updates yet. New reminders will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
+  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h1 id="firebaseNotificationsTitle">My Notifications and Actions Section</h1><p>Your course messages, reminders, and actions appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE UPDATES" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No course updates yet. New reminders will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
 }
 
 function dateValue(value) {
@@ -455,6 +456,68 @@ function formatDate(value) {
   return date ? date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
 }
 
+
+const COURSE_EMAIL_TEMPLATES = Object.freeze({
+  welcome: {
+    kind: "Welcome",
+    subject: "Welcome to Digital Enablement Basics for Engineers | Phase 2",
+    text: "Hello {{learner_name}},\n\nWelcome to Phase 2 of Digital Enablement Basics for Engineers. We are glad to have you with us.\n\nOver five learning days, you will explore cloud computing, information security, artificial intelligence, connected technologies, and future engineering applications. The portal is open daily from 8:00 AM to 8:00 PM local time. Complete the eight activities for each day to earn XP and your daily badge; completing all five days unlocks your course certificate.\n\nStart or continue your learning here:\nhttps://sarlayash.github.io/Digital-Enablement-Basics-for-Engineers/\n\nWarm regards,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+  },
+  completion: {
+    kind: "Completion",
+    subject: "Congratulations, {{learner_name}} — You completed Phase 2",
+    text: "Hello {{learner_name}},\n\nCongratulations on completing the five-day Digital Enablement Basics for Engineers programme. Your commitment to learning across cloud, security, AI, connected technologies, and future engineering applications is appreciated.\n\nYour course record shows {{completed_days}} of 5 days completed and {{xp}} XP earned. Your certificate is ready in the learner portal. Sign in, open Certificate, and choose Print / Save certificate to download or save it as a PDF.\n\nOpen the learner portal:\nhttps://sarlayash.github.io/Digital-Enablement-Basics-for-Engineers/\n\nWell done, and best wishes for applying these skills in your engineering work.\n\nWarm regards,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+  },
+  appreciation: {
+    kind: "Appreciation",
+    subject: "Thank you for your participation — Digital Enablement Phase 2",
+    text: "Hello {{learner_name}},\n\nThank you for your participation in Digital Enablement Basics for Engineers. Your time, questions, practice, and feedback help make the learning experience more useful for everyone.\n\nKeep building on what you learned, and continue to approach new tools with curiosity, care, and sound engineering judgement.\n\nWith appreciation,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+  },
+  certificate: {
+    kind: "Certificate",
+    subject: "Your Digital Enablement certificate is ready, {{learner_name}}",
+    text: "Hello {{learner_name}},\n\nCongratulations on completing the programme. Your Digital Enablement Basics for Engineers certificate is ready in the learner portal.\n\nYour course record shows {{completed_days}} of 5 days completed and {{xp}} XP earned. Sign in to the portal, open Certificate, and choose Print / Save certificate to download or save your certificate as a PDF.\n\nOpen the learner portal:\nhttps://sarlayash.github.io/Digital-Enablement-Basics-for-Engineers/\n\nCongratulations on your achievement.\n\nWarm regards,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+  },
+  lor: {
+    kind: "Letter of recommendation",
+    subject: "Letter of recommendation draft for {{learner_name}}",
+    text: "To the Selection Committee,\n\nI am writing in support of {{learner_name}}'s application for [opportunity or programme]. I mentored {{learner_name}} in Digital Enablement Basics for Engineers, Phase 2.\n\nCourse records confirm {{completed_days}} of 5 learning days completed and {{xp}} XP earned. The programme introduces cloud computing, information security, artificial intelligence, connected technologies, and future engineering applications.\n\n[Add a specific example you personally observed, such as a project contribution, problem-solving approach, collaboration, initiative, or learning growth.]\n\nBased on my direct experience, [add a factual assessment of strengths relevant to the opportunity]. Please contact me if further information would be useful.\n\nSincerely,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+  }
+});
+
+const MENTOR_FROM = "Mentor Kapil <kapilnarula27july@gmail.com>";
+
+function personalizeCourseEmail(value, recipient) {
+  const learnerName = String(recipient?.displayName || recipient?.email?.split("@")[0] || "Learner").trim();
+  return String(value || "")
+    .replace(/{{learner_name}}/g, learnerName)
+    .replace(/{{completed_days}}/g, String((recipient?.completedDays || []).length))
+    .replace(/{{xp}}/g, String(Number(recipient?.xp) || 0));
+}
+
+function brandedEmailHtml(subject, text) {
+  const paragraphs = String(text || "").split(/\n\s*\n/).filter(Boolean).map(part => {
+    const safe = escapeHTML(part).replace(/\n/g, "<br>").replace(/(https:\/\/[^\s<]+)/g, url => '<a href="' + url + '" style="color:#3159e8;text-decoration:underline">' + url + "</a>");
+    return '<p style="margin:0 0 18px;color:#33415b;font:15px/1.7 Arial,sans-serif">' + safe + "</p>";
+  }).join("");
+  return '<!doctype html><html><body style="margin:0;background:#f3f5f8;padding:28px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e4e8ef;border-radius:14px;overflow:hidden"><tr><td style="background:#101a35;padding:26px 32px;border-bottom:5px solid #cfaa56"><div style="color:#fff;font:700 12px/1.5 Arial,sans-serif;letter-spacing:1px;text-transform:uppercase">Digital Enablement Basics for Engineers</div><div style="color:#dbe3f5;font:13px/1.5 Arial,sans-serif;margin-top:5px">Phase 2 · Galgotias University · L&amp;T EduTech</div></td></tr><tr><td style="padding:32px">' + paragraphs + '</td></tr><tr><td style="background:#f8f9fb;border-top:1px solid #e6e9ef;padding:17px 32px;color:#6d7890;font:11px/1.6 Arial,sans-serif">Mentor Kapil · Course Mentor<br>kapilnarula27july@gmail.com</td></tr></table></body></html>';
+}
+
+function bindEmailTemplateControls() {
+  const select = document.getElementById("adminMessageTemplate");
+  if (!select) return;
+  select.addEventListener("change", () => {
+    const template = COURSE_EMAIL_TEMPLATES[select.value];
+    if (!template) return;
+    const kind = document.getElementById("adminMessageKind");
+    const subject = document.getElementById("adminMessageSubject");
+    const body = document.getElementById("adminMessageBody");
+    if (kind) kind.value = template.kind;
+    if (subject) subject.value = template.subject;
+    if (body) body.value = template.text;
+  });
+}
+
 function renderAdminDashboard(fromCache = false) {
   const root = document.getElementById("firebaseAdminDashboard");
   if (!root) return;
@@ -492,7 +555,7 @@ function renderAdminDashboard(fromCache = false) {
   const feedbackRows = selectedFeedback.map(item => `<tr><td>Day ${item.day}</td><td>${item.contentRating} / 5</td><td>${item.deliveryRating} / 5</td><td>${escapeHTML(item.comment || "—")}</td><td>${escapeHTML(formatDate(item.submittedAt))}</td></tr>`).join("");
   const attendanceRows = selectedAttendance.map(item => `<tr><td>${escapeHTML(item.sessionDate || "—")}</td><td>Day ${item.day}</td><td>${escapeHTML(formatDate(item.punchedInAt))}</td><td>${escapeHTML(formatDate(item.punchedOutAt))}</td><td>${item.punchedOutAt ? "Complete" : "In progress"}</td></tr>`).join("");
   const recipientOptions = filtered.map(user => `<option value="${escapeHTML(user.id)}">${escapeHTML(user.displayName || "Learner")} · ${escapeHTML(user.email || "No email")}</option>`).join("");
-  const communications = `<section class="firebase-comms"><header class="firebase-comms-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h2>Send a reminder or announcement</h2><p>Send a targeted message, or broadcast to all learners in the current filtered list. In-app updates are delivered live; optional emails enter the protected Firebase mail queue.</p></div><span class="firebase-live-indicator">ADMIN ONLY</span></header><div class="firebase-comms-grid"><label>Recipients<select id="adminMessageTarget"><option value="all">All current results · ${filtered.length} learner${filtered.length === 1 ? "" : "s"}</option>${recipientOptions}</select></label><label>Message type<select id="adminMessageKind"><option value="Reminder">Reminder</option><option value="Announcement">Announcement</option><option value="Session update">Session update</option></select></label><label class="wide">Subject<input id="adminMessageSubject" maxlength="140" placeholder="e.g., Day 2 post-assessment opens at 4 PM"></label><label class="wide">Message<textarea id="adminMessageBody" maxlength="2000" placeholder="Write the reminder, instruction, or course update learners should receive."></textarea></label><label class="wide firebase-comms-check"><input id="adminMessageEmail" type="checkbox" checked><span>Queue an email copy for each recipient</span></label></div><div class="firebase-comms-actions"><small>For email delivery, configure Firebase Trigger Email with your approved SMTP provider. Until then, in-app updates still deliver live.</small><button class="action" id="sendCourseCommunication">Send to learners</button></div></section>`;
+  const communications = `<section class="firebase-comms"><header class="firebase-comms-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h2>Notifications and Actions</h2><p>Send a live in-portal update and, when mail delivery is configured, a personalized email. Choose a polished template or write a custom message.</p></div><span class="firebase-live-indicator">ADMIN ONLY</span></header><div class="firebase-comms-grid"><label>Recipients<select id="adminMessageTarget"><option value="all">All current results · ${filtered.length} learner${filtered.length === 1 ? "" : "s"}</option>${recipientOptions}</select></label><label>Message type<select id="adminMessageKind"><option value="Reminder">Reminder</option><option value="Announcement">Announcement</option><option value="Session update">Session update</option><option value="Welcome">Welcome</option><option value="Completion">Completion</option><option value="Appreciation">Appreciation</option><option value="Certificate">Certificate</option><option value="Letter of recommendation">Letter of recommendation</option></select></label><label>Email template<select id="adminMessageTemplate"><option value="">Custom message</option><option value="welcome">Welcome</option><option value="completion">Completion</option><option value="appreciation">Appreciation</option><option value="certificate">Certificate ready</option><option value="lor">Letter of recommendation draft</option></select></label><label class="wide">Subject<input id="adminMessageSubject" maxlength="140" placeholder="Choose a template or write a subject"></label><label class="wide">Message<textarea id="adminMessageBody" maxlength="2000" placeholder="Choose a template or write the message learners should receive."></textarea><small class="firebase-template-note">Templates personalize learner name, course completion, and XP when queued.</small></label><label class="wide firebase-comms-check"><input id="adminMessageEmail" type="checkbox"><span>Also queue an email copy (requires configured mail delivery)</span></label></div><div class="firebase-comms-actions"><small>Emails use Mentor Kapil as sender through the configured mail provider. Certificate emails link to the portal; they do not attach a PDF. Review drafts before sending.</small><div class="firebase-comms-buttons"><button class="action secondary" id="testCourseEmail">Send test to Mentor Kapil</button><button class="action" id="sendCourseCommunication">Send to learners</button></div></div></section>`;
   const details = selected ? `<section class="firebase-detail"><header class="firebase-detail-head"><div><span class="eyebrow" style="color:#5368c9">INDIVIDUAL LEARNER RECORD</span><h2>${escapeHTML(selected.displayName || "Learner")}</h2><p>${escapeHTML(selected.email || "")} · ${Number(selected.xp) || 0} XP · ${(selected.completedDays || []).length}/5 days</p></div><button class="action secondary" id="closeAdminDetail">Close detail</button></header><div class="firebase-detail-scroll"><h3>Day-by-day performance</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Sections</th><th>Pre-assessment</th><th>Post-assessment</th><th>Spin challenge</th><th>Notes / assignment</th><th>Badge</th></tr></thead><tbody>${detailRows || `<tr><td colspan="7" class="firebase-empty">Daily progress records are syncing. Refresh in a moment.</td></tr>`}</tbody></table></div><h3>Daily learner feedback</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Content</th><th>Delivery</th><th>Comment</th><th>Submitted</th></tr></thead><tbody>${feedbackRows || `<tr><td colspan="5" class="firebase-empty">No feedback submitted yet.</td></tr>`}</tbody></table></div><h3>Attendance punches</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Date</th><th>Session</th><th>Punch in</th><th>Punch out</th><th>Status</th></tr></thead><tbody>${attendanceRows || `<tr><td colspan="5" class="firebase-empty">No attendance punches recorded yet.</td></tr>`}</tbody></table></div></div></section>` : "";
   root.innerHTML = `<header class="firebase-admin-head"><div><span class="eyebrow" style="color:#5368c9">ADMIN · LIVE LEARNER OPERATIONS</span><h1 id="firebaseAdminTitle">Learner performance</h1><p>Live individual progress, assessment outcomes, feedback and session attendance. Learner notes and assignment text remain private.</p></div><span class="firebase-live-indicator">${fromCache ? "CACHED SNAPSHOT" : "LIVE UPDATES"}</span></header>
     <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.attendanceCount) || 0), 0)}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.feedbackCount) || 0), 0)}</strong></article></div>
@@ -502,6 +565,8 @@ function renderAdminDashboard(fromCache = false) {
   document.getElementById("downloadAdminCsv")?.addEventListener("click", downloadAdminCSV);
   document.getElementById("downloadActivityCsv")?.addEventListener("click", downloadAdminActivityCSV);
   document.getElementById("sendCourseCommunication")?.addEventListener("click", sendCourseCommunication);
+  document.getElementById("testCourseEmail")?.addEventListener("click", sendTestCourseEmail);
+  bindEmailTemplateControls();
   document.getElementById("closeAdminDetail")?.addEventListener("click", () => { adminDetailUnsubscribes.forEach(unsubscribe => unsubscribe()); adminDetailUnsubscribes = []; selectedAdminUid = null; adminDayRecords = []; adminDetailFeedback = []; adminDetailAttendance = []; renderAdminDashboard(fromCache); });
   root.querySelectorAll("[data-learner-uid]").forEach(button => button.addEventListener("click", () => openAdminLearnerDetail(button.dataset.learnerUid)));
 }
@@ -541,13 +606,14 @@ function downloadAdminActivityCSV() {
 async function sendCourseCommunication() {
   if (!window.firebaseIsAdmin || !currentUser || !db || !window.firebaseWriteBatch) return;
   const target = document.getElementById("adminMessageTarget")?.value || "all";
-  const kind = String(document.getElementById("adminMessageKind")?.value || "Reminder").trim().slice(0, 80);
+  const templateId = document.getElementById("adminMessageTemplate")?.value || "";
+  const kind = String(document.getElementById("adminMessageKind")?.value || COURSE_EMAIL_TEMPLATES[templateId]?.kind || "Reminder").trim().slice(0, 80);
   const subject = String(document.getElementById("adminMessageSubject")?.value || "").trim().slice(0, 140);
   const message = String(document.getElementById("adminMessageBody")?.value || "").trim().slice(0, 2000);
   const includeEmail = !!document.getElementById("adminMessageEmail")?.checked;
   const query = (document.getElementById("adminSearch")?.value || "").trim().toLowerCase();
-  const filtered = adminUsers.filter(user => `${user.displayName || ""} ${user.email || ""}`.toLowerCase().includes(query));
-  const recipients = target === "all" ? filtered : adminUsers.filter(user => user.id === target);
+  const filtered = adminUsers.filter(user => (user.displayName || "").concat(" ", user.email || "").toLowerCase().includes(query));
+  let recipients = target === "all" ? filtered : adminUsers.filter(user => user.id === target);
   if (!subject || !message) {
     window.toast?.("Add both a subject and a message before sending.");
     return;
@@ -555,6 +621,25 @@ async function sendCourseCommunication() {
   if (!recipients.length) {
     window.toast?.("Choose at least one learner to receive this update.");
     return;
+  }
+  if (templateId === "lor" && target === "all") {
+    window.toast?.("Choose one learner for a letter of recommendation draft.");
+    return;
+  }
+  if (templateId === "lor" && /\[[^\]]+\]/.test(message)) {
+    window.toast?.("Complete the bracketed recommendation fields before sending.");
+    return;
+  }
+  if (templateId === "completion" || templateId === "certificate") {
+    if (target === "all") recipients = recipients.filter(user => (user.completedDays || []).length >= 5);
+    else if ((recipients[0].completedDays || []).length < 5) {
+      window.toast?.("This learner has not completed all five days yet.");
+      return;
+    }
+    if (!recipients.length) {
+      window.toast?.("No completed learners in the current recipient list.");
+      return;
+    }
   }
   const button = document.getElementById("sendCourseCommunication");
   if (button) { button.disabled = true; button.textContent = "Sending…"; }
@@ -565,28 +650,32 @@ async function sendCourseCommunication() {
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
       const batch = window.firebaseWriteBatch(db);
       chunks[chunkIndex].forEach((recipient, index) => {
-        const id = `${stamp}-${chunkIndex}-${index}`;
-        batch.set(window.firebaseDoc(db, "users", recipient.id, "notifications", `notice-${id}`), {
+        const id = stamp + "-" + chunkIndex + "-" + index;
+        const finalSubject = personalizeCourseEmail(subject, recipient).slice(0, 140);
+        const finalMessage = personalizeCourseEmail(message, recipient).slice(0, 2000);
+        batch.set(window.firebaseDoc(db, "users", recipient.id, "notifications", "notice-" + id), {
           uid: recipient.id,
-          title: subject,
-          message,
+          title: finalSubject,
+          message: finalMessage,
           kind,
-          senderName: String(currentUser.displayName || currentUser.email || "Course team").slice(0, 120),
+          senderName: "Mentor Kapil",
           createdAt: window.firebaseServerTimestamp()
         });
         if (includeEmail && recipient.email) {
-          batch.set(window.firebaseDoc(db, "mail", `course-${id}`), {
+          batch.set(window.firebaseDoc(db, "mail", "course-" + id), {
             to: recipient.email,
+            from: MENTOR_FROM,
+            replyTo: "kapilnarula27july@gmail.com",
             recipientUid: recipient.id,
             source: "digital-enablement-admin",
             createdAt: window.firebaseServerTimestamp(),
-            message: { subject, text: message }
+            message: { subject: finalSubject, text: finalMessage, html: brandedEmailHtml(finalSubject, finalMessage) }
           });
         }
       });
       await batch.commit();
     }
-    window.toast?.(`Update sent to ${recipients.length} learner${recipients.length === 1 ? "" : "s"}.`);
+    window.toast?.("Update sent to " + recipients.length + " learner" + (recipients.length === 1 ? "" : "s") + ".");
     const body = document.getElementById("adminMessageBody");
     if (body) body.value = "";
   } catch (error) {
@@ -594,6 +683,63 @@ async function sendCourseCommunication() {
     window.toast?.(readableError(error));
   } finally {
     if (button) { button.disabled = false; button.textContent = "Send to learners"; }
+  }
+}
+
+async function sendTestCourseEmail() {
+  if (!window.firebaseIsAdmin || !currentUser || !db || !window.firebaseWriteBatch) return;
+  const button = document.getElementById("testCourseEmail");
+  if (button) { button.disabled = true; button.textContent = "Queueing test…"; }
+  try {
+    const subject = String(document.getElementById("adminMessageSubject")?.value || "").trim().slice(0, 140);
+    const body = String(document.getElementById("adminMessageBody")?.value || "").trim().slice(0, 2000);
+    if (!subject || !body) {
+      window.toast?.("Choose an email template or add a subject and message first.");
+      return;
+    }
+    const recipient = { displayName: "Mentor Kapil", email: "kapilnarula27july@gmail.com", completedDays: [], xp: 0 };
+    const finalSubject = personalizeCourseEmail(subject, recipient).slice(0, 140);
+    const finalBody = personalizeCourseEmail(body, recipient).slice(0, 2000);
+    const ref = window.firebaseDoc(db, "mail", "test-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8));
+    const batch = window.firebaseWriteBatch(db);
+    batch.set(ref, {
+      to: recipient.email,
+      from: MENTOR_FROM,
+      replyTo: recipient.email,
+      recipientUid: currentUser.uid,
+      source: "digital-enablement-admin",
+      createdAt: window.firebaseServerTimestamp(),
+      message: { subject: finalSubject, text: finalBody, html: brandedEmailHtml(finalSubject, finalBody) }
+    });
+    await batch.commit();
+    window.toast?.("Test email queued to " + recipient.email + "; checking delivery status…");
+    await new Promise(resolve => {
+      let unsubscribe = () => {};
+      const timeout = window.setTimeout(() => {
+        unsubscribe();
+        window.toast?.("The test is queued, but no delivery confirmation arrived. Check Firebase Trigger Email and SMTP settings.");
+        resolve();
+      }, 20000);
+      unsubscribe = window.firebaseOnSnapshot(ref, snapshot => {
+        const state = snapshot.data()?.delivery?.state;
+        if (state === "SUCCESS" || state === "ERROR") {
+          clearTimeout(timeout);
+          unsubscribe();
+          window.toast?.(state === "SUCCESS" ? "Test email delivered to " + recipient.email + "." : "Test email failed. Check the Firebase mail delivery error.");
+          resolve();
+        }
+      }, error => {
+        clearTimeout(timeout);
+        unsubscribe();
+        window.toast?.(readableError(error));
+        resolve();
+      });
+    });
+  } catch (error) {
+    console.error("Test email failed", error);
+    window.toast?.(readableError(error));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Send test to Mentor Kapil"; }
   }
 }
 
