@@ -17,7 +17,10 @@ Powered by Mentor Kapil. With gratitude to Galgotias University and L&T EduTech.
 ## Daily learning flow
 
 - The portal and both pre- and post-assessments are open daily from 8:00 AM to 11:00 PM India Standard Time and lock for maintenance outside those hours.
-- Learners can opt in to hourly browser notifications for unfinished daily tasks. Allow notifications and keep the portal open in a browser to receive these reminders.
+- Learners can opt in to hourly browser notifications for unfinished daily tasks.
+- Attendance entries are automatically punched out at 8:00 PM IST while the portal is open; a missed punch-out is repaired with the 8:00 PM timestamp on the learner's next sign-in.
+- Signed-in sessions automatically sign out after 10 minutes without user activity.
+- The landing hero shows the current IST date and time, and the page footer shows a shared page-impression count. Allow notifications and keep the portal open in a browser to receive these reminders.
 - Each phase uses the same 50-question day bank, has one retake, and uses a 70% pass mark.
 - The daily spin challenge draws 25 distinct questions from the day bank.
 - For local testing only, use portalPreview=1 and assessmentPreview=1 on a local file or localhost URL; preview bypasses are disabled on the public site.
