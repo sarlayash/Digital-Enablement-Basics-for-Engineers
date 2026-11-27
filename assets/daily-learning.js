@@ -199,9 +199,9 @@
   function windowStatus(name) {
     if (PREVIEW) return {open:true,label:"Preview mode · time window bypassed"};
     var d=new Date(),m=d.getHours()*60+d.getMinutes();
-    var start=name==="pre"?9*60:16*60, end=name==="pre"?12*60:19*60;
-    if(m>=start&&m<end) return {open:true,label:name==="pre"?"Open now · closes at 12:00 noon":"Open now · closes at 7:00 PM"};
-    return {open:false,label:name==="pre"?"Available daily · 9:00 AM–12:00 PM":"Available daily · 4:00 PM–7:00 PM"};
+    var start=8*60, end=20*60;
+    if(m>=start&&m<end) return {open:true,label:"Open now · closes at 8:00 PM"};
+    return {open:false,label:"Available daily · 8:00 AM–8:00 PM"};
   }
   function phaseCard(day,name) {
     var s=phase(day,name), w=windowStatus(name), title=name==="pre"?"Pre-assessment":"Post-assessment";
