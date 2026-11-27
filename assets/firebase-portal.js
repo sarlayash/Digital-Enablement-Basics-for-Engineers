@@ -23,6 +23,9 @@ let adminDetailFeedback = [];
 let adminDetailAttendance = [];
 let latestState = null;
 let syncTimer = 0;
+let idleLogoutTimer = 0;
+let attendanceAutoCloseTimer = 0;
+const autoPunchOutInFlight = new Set();
 let syncInFlight = Promise.resolve();
 let cloudReady = false;
 const syncedDayFingerprints = new Map();
@@ -442,7 +445,7 @@ const COURSE_EMAIL_TEMPLATES = Object.freeze({
   welcome: {
     kind: "Welcome",
     subject: "Welcome to Digital Enablement Basics for Engineers | Phase 2",
-    text: "Hello {{learner_name}},\n\nWelcome to Phase 2 of Digital Enablement Basics for Engineers. We are glad to have you with us.\n\nOver five learning days, you will explore cloud computing, information security, artificial intelligence, connected technologies, and future engineering applications. The portal is open daily from 8:00 AM to 8:00 PM local time. Complete the eight activities for each day to earn XP and your daily badge; completing all five days unlocks your course certificate.\n\nStart or continue your learning here:\nhttps://sarlayash.github.io/Digital-Enablement-Basics-for-Engineers/\n\nWarm regards,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
+    text: "Hello {{learner_name}},\n\nWelcome to Phase 2 of Digital Enablement Basics for Engineers. We are glad to have you with us.\n\nOver five learning days, you will explore cloud computing, information security, artificial intelligence, connected technologies, and future engineering applications. The portal is open daily from 8:00 AM to 11:00 PM IST. Complete the eight activities for each day to earn XP and your daily badge; completing all five days unlocks your course certificate.\n\nStart or continue your learning here:\nhttps://sarlayash.github.io/Digital-Enablement-Basics-for-Engineers/\n\nWarm regards,\nMentor Kapil\nCourse Mentor\nDigital Enablement Basics for Engineers\nkapilnarula27july@gmail.com"
   },
   completion: {
     kind: "Completion",
@@ -807,9 +810,33 @@ function setAdminAccess(enabled) {
   }
 }
 
+function autoPunchOutExpiredAttendance(uid = currentUser?.uid) {
+  if (!uid || currentUser?.uid !== uid || !cloudReady || !window.portalIndiaNow) return Promise.resolve();
+  const now = window.portalIndiaNow();
+  const jobs = [];
+  Object.entries(myAttendance).forEach(([id, record]) => {
+    if (!record?.punchedInAt || record.punchedOutAt || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(record.sessionDate || ""))) return;
+    if (record.sessionDate > now.dateKey || (record.sessionDate === now.dateKey && now.minutes < 20 * 60)) return;
+    if (autoPunchOutInFlight.has(id)) return;
+    const cutoff = new Date(record.sessionDate + "T14:30:00.000Z");
+    if (Number.isNaN(cutoff.getTime())) return;
+    const punchedIn = dateValue(record.punchedInAt);
+    if (punchedIn && punchedIn > cutoff) cutoff.setTime(punchedIn.getTime());
+    autoPunchOutInFlight.add(id);
+    const stamp = window.firebaseTimestampFromDate(cutoff);
+    jobs.push(window.firebaseSetDoc(window.firebaseDoc(db, "users", uid, "attendance", id), {
+      punchedOutAt: stamp, updatedAt: window.firebaseServerTimestamp()
+    }, { merge: true }).then(() => {
+      myAttendance[id] = { ...record, punchedOutAt: stamp };
+      if (Number(record.day) > 0) window.refreshDailyAttendance?.(Number(record.day) - 1);
+    }).catch(error => {
+      console.warn("Automatic attendance punch-out could not be synced", error);
+    }).finally(() => autoPunchOutInFlight.delete(id)));
+  });
+  return Promise.all(jobs);
+}
 function localSessionDate() {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return window.portalIndiaNow ? window.portalIndiaNow().dateKey : new Date().toISOString().slice(0, 10);
 }
 
 window.firebaseGetDailyFeedback = day => myFeedback[`day-${day + 1}`] || null;
@@ -873,6 +900,7 @@ function startLearnerActivityListeners(user) {
   myAttendanceUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "attendance"), snapshot => {
     myAttendance = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyAttendance?.(day);
+    autoPunchOutExpiredAttendance(user.uid);
     if (latestState) queueProgress(latestState);
   }, error => window.firebaseSetCloudStatus(readableError(error), true));
   myNotificationsUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "notifications"), snapshot => {
@@ -937,12 +965,41 @@ try {
     }
   };
   window.firebaseSignOut = () => authSdk.signOut(auth).catch(error => loginMessage(readableError(error), true));
+  const resetIdleLogoutTimer = () => {
+    clearTimeout(idleLogoutTimer);
+    if (!currentUser) return;
+    idleLogoutTimer = setTimeout(async () => {
+      const uid = currentUser?.uid;
+      if (!uid) return;
+      try {
+        await syncNow();
+        if (currentUser?.uid === uid) await authSdk.signOut(auth);
+        loginMessage("Signed out after 10 minutes of inactivity. Progress sync was requested.");
+      } catch (error) {
+        loginMessage("Automatic sign-out failed: " + readableError(error), true);
+      }
+    }, 10 * 60 * 1000);
+  };
+  let lastActivitySignal = 0;
+  const noteUserActivity = () => {
+    const now = Date.now();
+    if (now - lastActivitySignal < 750) return;
+    lastActivitySignal = now;
+    resetIdleLogoutTimer();
+  };
+  ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "click"].forEach(type => {
+    document.addEventListener(type, noteUserActivity, { passive: true });
+  });
 
   authSdk.onAuthStateChanged(auth, async user => {
     const previous = currentUser;
     currentUser = user;
     window.firebaseCurrentUserUid = user?.uid || "";
     if (!user) {
+      clearTimeout(idleLogoutTimer);
+      clearInterval(attendanceAutoCloseTimer);
+      idleLogoutTimer = 0;
+      attendanceAutoCloseTimer = 0;
       myFeedbackUnsubscribe?.();
       myAttendanceUnsubscribe?.();
       myNotificationsUnsubscribe?.();
@@ -966,6 +1023,10 @@ try {
       startLearnerActivityListeners(user);
       latestState = window.getLearnerStateForFirebase?.() || {};
       await syncNow(true);
+      resetIdleLogoutTimer();
+      clearInterval(attendanceAutoCloseTimer);
+      attendanceAutoCloseTimer = setInterval(() => autoPunchOutExpiredAttendance(user.uid), 30000);
+      autoPunchOutExpiredAttendance(user.uid);
       loginMessage(isAdmin ? `Signed in as course admin · ${user.email}` : `Signed in as ${user.email}. Progress sync is active.`);
     } catch (error) {
       console.error("Firebase profile initialization failed", error);
