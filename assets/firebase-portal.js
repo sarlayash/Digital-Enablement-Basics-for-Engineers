@@ -15,6 +15,8 @@ let currentUser = null;
 let adminUnsubscribes = [];
 let adminDetailUnsubscribes = [];
 let adminUsers = [];
+let adminRosterScores = new Map();
+let adminRosterScoreLoad = 0;
 let adminFeedback = [];
 let adminAttendance = [];
 let selectedAdminUid = null;
@@ -524,11 +526,13 @@ function renderAdminDashboard(fromCache = false) {
     return `<div class="firebase-day-bar"><div><i style="height:${percent}%"></i></div><b>${count}</b><small>Day ${day + 1}</small></div>`;
   }).join("");
   const rows = filtered.map(user => {
+    const rosterScores = adminRosterScores.get(user.id) || {};
+    const scoreCell = phase => { const entry = rosterScores[phase]; return entry ? `${entry.score}/50${entry.day ? ` · Day ${entry.day}` : ""}${entry.legacy ? " · best on record" : ""}` : "—"; };
     return `<tr>
     <td class="user-cell"><b>${escapeHTML(user.displayName || "Learner")}</b><span>${escapeHTML(user.email || "")}</span><button class="action secondary admin-detail-button" data-learner-uid="${escapeHTML(user.id)}">View individual detail</button></td>
     <td>${escapeHTML(formatDate(user.lastLoginAt))}</td><td>${escapeHTML(formatDate(user.lastAttemptAt))}<br><span style="color:#7b8498">${escapeHTML(user.lastAttemptLabel || "")}</span></td>
     <td>${escapeHTML(formatDate(user.createdAt))}</td><td>${(user.completedDays || []).length} / 5</td><td>${Number(user.sectionsCompleted) || 0} / 40</td>
-    <td>${Number(user.assessmentPasses) || 0} / ${Number(user.assessmentAttempts) || 0}</td><td>${Number(user.mockTestsPassed) || 0}</td>
+    <td>${Number(user.assessmentPasses) || 0} / ${Number(user.assessmentAttempts) || 0}</td><td>${scoreCell("pre")}</td><td>${scoreCell("post")}</td><td>${Number(user.mockTestsPassed) || 0}</td>
     <td>${Number(user.attendanceCount) || 0}</td><td>${Number(user.averageContentRating) ? `${Number(user.averageContentRating).toFixed(1)} / 5` : "—"}</td><td>${Number(user.averageDeliveryRating) ? `${Number(user.averageDeliveryRating).toFixed(1)} / 5` : "—"}</td>
     <td>${(user.badges || []).length}</td><td>${Number(user.xp) || 0}</td><td>${escapeHTML(formatDate(user.lastActivityAt))}</td></tr>`;
   }).join("");
@@ -546,7 +550,7 @@ function renderAdminDashboard(fromCache = false) {
     <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.attendanceCount) || 0), 0)}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.feedbackCount) || 0), 0)}</strong></article></div>
     <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("averageContentRating")} / 5 · average delivery rating: ${ratingAverage("averageDeliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>${communications}
     <section class="firebase-analysis"><h2>Assessment reports</h2><p>Download daily or consolidated pre, post, mock, and final assessment scores. PDF opens the print dialog; choose Save as PDF.</p><label>Daily report day <select id="assessmentDay"><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option><option value="4">Day 4</option><option value="5">Day 5</option></select></label> <button class="action" id="dailyAssessCsv">Daily CSV</button> <button class="action secondary" id="dailyAssessPdf">Daily PDF</button> <button class="action" id="allAssessCsv">Consolidated CSV</button> <button class="action secondary" id="allAssessPdf">Consolidated PDF</button><p id="assessmentReportStatus" role="status"></p></section>
-    <section class="firebase-users"><div class="panelhead"><div><h2>All learner records</h2><p class="assessment-sub">Open an individual profile for daily scores, notes/assignment completion, feedback, and attendance punches.</p></div></div><div class="firebase-users-toolbar"><input id="adminSearch" type="search" placeholder="Filter by learner name or email" aria-label="Filter learner records"><button class="action" id="downloadAdminCsv">Download performance CSV</button><button class="action secondary" id="downloadActivityCsv">Download feedback & attendance CSV</button></div><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Learner</th><th>Last sign-in</th><th>Last attempt</th><th>Registered</th><th>Days</th><th>Sections</th><th>Assessment pass / attempts</th><th>Mock passes</th><th>Attendance</th><th>Content rating</th><th>Delivery rating</th><th>Badges</th><th>XP</th><th>Last activity</th></tr></thead><tbody>${rows || `<tr><td colspan="14" class="firebase-empty">${adminUsers.length ? "No learners match this filter." : "No Google learner profiles are recorded yet."}</td></tr>`}</tbody></table></div><p class="firebase-sync-note">Live Firestore listeners · ${new Date().toLocaleTimeString()} · Learner progress, feedback and punches update as they are saved.</p></section>${details}`;
+    <section class="firebase-users"><div class="panelhead"><div><h2>All learner records</h2><p class="assessment-sub">Open an individual profile for daily scores, notes/assignment completion, feedback, and attendance punches.</p></div></div><div class="firebase-users-toolbar"><input id="adminSearch" type="search" placeholder="Filter by learner name or email" aria-label="Filter learner records"><button class="action" id="downloadAdminCsv">Download performance CSV</button><button class="action secondary" id="downloadActivityCsv">Download feedback & attendance CSV</button></div><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Learner</th><th>Last sign-in</th><th>Last attempt</th><th>Registered</th><th>Days</th><th>Sections</th><th>Assessment pass / attempts</th><th>Final pre score</th><th>Final post score</th><th>Mock passes</th><th>Attendance</th><th>Content rating</th><th>Delivery rating</th><th>Badges</th><th>XP</th><th>Last activity</th></tr></thead><tbody>${rows || `<tr><td colspan="16" class="firebase-empty">${adminUsers.length ? "No learners match this filter." : "No Google learner profiles are recorded yet."}</td></tr>`}</tbody></table></div><p class="firebase-sync-note">Live Firestore listeners · ${new Date().toLocaleTimeString()} · Learner progress, feedback and punches update as they are saved.</p></section>${details}`;
   document.getElementById("adminSearch")?.addEventListener("input", () => renderAdminDashboard(fromCache));
   ["dailyAssessCsv","dailyAssessPdf","allAssessCsv","allAssessPdf"].forEach(id=>document.getElementById(id)?.addEventListener("click",async()=>{const s=document.getElementById("assessmentReportStatus");if(s)s.textContent="Preparing report…";try{await assessmentReport(id.endsWith("Csv")?"csv":"pdf",id.startsWith("all"));if(s)s.textContent="Report ready.";}catch(e){if(s)s.textContent="Report failed: "+readableError(e);}}));
   document.getElementById("downloadAdminCsv")?.addEventListener("click", downloadAdminCSV);
@@ -590,8 +594,9 @@ function csvCell(value) {
 function downloadAdminCSV() {
   const query = (document.getElementById("adminSearch")?.value || "").trim().toLowerCase();
   const filtered = adminUsers.filter(user => `${user.displayName || ""} ${user.email || ""}`.toLowerCase().includes(query));
-  const header = ["Name", "Email", "Last login", "Last attempt", "Last attempt type", "Registered", "Days completed", "Sections completed", "Assessment passes", "Assessment attempts", "Mock passes", "XP", "Badges earned", "Last activity"];
-  const rows = filtered.map(user => [user.displayName, user.email, formatDate(user.lastLoginAt), formatDate(user.lastAttemptAt), user.lastAttemptLabel, formatDate(user.createdAt), (user.completedDays || []).length, user.sectionsCompleted, user.assessmentPasses, user.assessmentAttempts, user.mockTestsPassed, user.xp, (user.badges || []).length, formatDate(user.lastActivityAt)]);
+  const rosterScoreText = (uid, phase) => { const value = adminRosterScores.get(uid)?.[phase]; return value ? `${value.score}/50${value.day ? ` (Day ${value.day})` : ""}${value.legacy ? " (best on record)" : ""}` : ""; };
+  const header = ["Name", "Email", "Last login", "Last attempt", "Last attempt type", "Registered", "Days completed", "Sections completed", "Assessment passes", "Assessment attempts", "Final pre score", "Final post score", "Mock passes", "XP", "Badges earned", "Last activity"];
+  const rows = filtered.map(user => [user.displayName, user.email, formatDate(user.lastLoginAt), formatDate(user.lastAttemptAt), user.lastAttemptLabel, formatDate(user.createdAt), (user.completedDays || []).length, user.sectionsCompleted, user.assessmentPasses, user.assessmentAttempts, rosterScoreText(user.id, "pre"), rosterScoreText(user.id, "post"), user.mockTestsPassed, user.xp, (user.badges || []).length, formatDate(user.lastActivityAt)]);
   const csv = [header, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
@@ -777,6 +782,41 @@ function openAdminLearnerDetail(uid) {
   ];
 }
 
+async function loadAdminRosterScores() {
+  const loadId = ++adminRosterScoreLoad;
+  const next = new Map();
+  for (let i = 0; i < adminUsers.length; i += 15) {
+    const batch = await Promise.all(adminUsers.slice(i, i + 15).map(async user => {
+      try {
+        const snapshot = await window.firebaseGetDocs(window.firebaseCollection(db, "users", user.id, "days"));
+        const result = { pre: null, post: null };
+        snapshot.docs.forEach(doc => {
+          const record = doc.data();
+          for (const phase of ["pre", "post"]) {
+            const scores = Array.isArray(record[phase + "Scores"]) ? record[phase + "Scores"] : [];
+            const attempts = Number(record[phase + "Attempts"]) || 0;
+            let candidate = null;
+            if (scores.length) {
+              candidate = scores.reduce((latest, item) => {
+                const at = dateValue(item.at)?.getTime() || 0;
+                return !latest || at >= latest.at ? { score: Number(item.score) || 0, at, day: Number(record.day) + 1, legacy: false } : latest;
+              }, null);
+            } else if (attempts > 0 && record[phase + "Best"] != null) {
+              candidate = { score: Number(record[phase + "Best"]) || 0, at: dateValue(record.updatedAt)?.getTime() || 0, day: Number(record.day) + 1, legacy: true };
+            }
+            if (candidate && (!result[phase] || candidate.at >= result[phase].at)) result[phase] = candidate;
+          }
+        });
+        return [user.id, result];
+      } catch (error) { console.warn("Could not load roster assessment scores for", user.id, error); return [user.id, { pre: null, post: null }]; }
+    }));
+    batch.forEach(([uid, scores]) => next.set(uid, scores));
+  }
+  if (loadId !== adminRosterScoreLoad) return;
+  adminRosterScores = next;
+  renderAdminDashboard();
+}
+
 function startAdminListener() {
   if (!window.firebaseIsAdmin || adminUnsubscribes.length || !db) return;
   const indicator = document.querySelector(".firebase-live-indicator");
@@ -790,6 +830,7 @@ function startAdminListener() {
   adminUnsubscribes = [window.firebaseOnSnapshot(window.firebaseCollection(db, "users"), snapshot => {
     adminUsers = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (dateValue(b.lastActivityAt)?.getTime() || 0) - (dateValue(a.lastActivityAt)?.getTime() || 0));
     renderAdminDashboard(snapshot.metadata.fromCache);
+    loadAdminRosterScores();
   }, onError)];
 }
 
