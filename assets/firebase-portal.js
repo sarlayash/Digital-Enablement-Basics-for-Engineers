@@ -28,6 +28,7 @@ let syncTimer = 0;
 let idleLogoutTimer = 0;
 let attendanceAutoCloseTimer = 0;
 const autoPunchOutInFlight = new Set();
+const attendancePunchInFlight = new Set();
 let syncInFlight = Promise.resolve();
 let cloudReady = false;
 const syncedDayFingerprints = new Map();
@@ -936,28 +937,48 @@ window.firebaseSubmitDailyFeedback = async (day, feedback) => {
 };
 window.firebasePunchAttendance = async (day, action) => {
   if (!currentUser || !cloudReady) throw new Error("Sign in with Google to record attendance for the course team.");
+  if (!Number.isInteger(day) || day < 0 || day > 4) throw new Error("Choose a valid learning day.");
+  if (action !== "in" && action !== "out") throw new Error("Choose punch in or punch out.");
+  if (typeof window.firebaseRunTransaction !== "function") throw new Error("Attendance service is still starting. Please wait a moment and try again.");
   const sessionDate = localSessionDate();
-  const recordId = `day-${day + 1}-${sessionDate}`;
+  const recordId = "day-" + (day + 1) + "-" + sessionDate;
+  if (attendancePunchInFlight.has(recordId)) throw new Error("Your attendance update is saving. Please wait for confirmation.");
   const ref = window.firebaseDoc(db, "users", currentUser.uid, "attendance", recordId);
-  if (action === "in") {
-    const existing = myAttendance[recordId];
-    if (existing?.punchedInAt) throw new Error("You have already punched in for this session.");
-    await window.firebaseSetDoc(ref, {
-      uid: currentUser.uid,
-      learnerName: String(currentUser.displayName || currentUser.email || "Learner").slice(0, 120),
-      email: String(currentUser.email || "").slice(0, 254),
-      day: day + 1,
-      sessionDate,
-      punchedInAt: window.firebaseServerTimestamp(),
-      punchedOutAt: null,
-      updatedAt: window.firebaseServerTimestamp()
+  const learnerName = String(currentUser.displayName || currentUser.email || "Learner").slice(0, 120);
+  const email = String(currentUser.email || "").slice(0, 254);
+  let optimisticRecord = null;
+  attendancePunchInFlight.add(recordId);
+  try {
+    await window.firebaseRunTransaction(db, async transaction => {
+      const snapshot = await transaction.get(ref);
+      const existing = snapshot.exists() ? snapshot.data() : null;
+      if (action === "in") {
+        if (existing?.punchedInAt) throw new Error("You have already punched in for this session.");
+        optimisticRecord = {
+          uid: currentUser.uid, learnerName, email, day: day + 1, sessionDate,
+          punchedInAt: window.firebaseServerTimestamp(), punchedOutAt: null,
+          updatedAt: window.firebaseServerTimestamp()
+        };
+        transaction.set(ref, optimisticRecord);
+        return;
+      }
+      if (!existing?.punchedInAt) throw new Error("Punch in before you punch out.");
+      if (existing.punchedOutAt) throw new Error("You have already punched out for this session.");
+      transaction.update(ref, {
+        punchedOutAt: window.firebaseServerTimestamp(),
+        updatedAt: window.firebaseServerTimestamp()
+      });
+      optimisticRecord = { ...existing, punchedOutAt: new Date(), updatedAt: new Date() };
     });
-    return;
+    const updatedAt = new Date();
+    myAttendance[recordId] = action === "in"
+      ? { ...optimisticRecord, punchedInAt: updatedAt, punchedOutAt: null, updatedAt }
+      : { ...optimisticRecord, punchedOutAt: updatedAt, updatedAt };
+    window.refreshDailyAttendance?.(day);
+    if (latestState) queueProgress(latestState);
+  } finally {
+    attendancePunchInFlight.delete(recordId);
   }
-  const existing = myAttendance[recordId];
-  if (!existing?.punchedInAt) throw new Error("Punch in before you punch out.");
-  if (existing.punchedOutAt) throw new Error("You have already punched out for this session.");
-  await window.firebaseSetDoc(ref, { punchedOutAt: window.firebaseServerTimestamp(), updatedAt: window.firebaseServerTimestamp() }, { merge: true });
 };
 
 function startLearnerActivityListeners(user) {
@@ -1011,6 +1032,7 @@ try {
   window.firebaseGetDoc = firestoreSdk.getDoc;
   window.firebaseGetDocs = firestoreSdk.getDocs;
   window.firebaseSetDoc = firestoreSdk.setDoc;
+  window.firebaseRunTransaction = firestoreSdk.runTransaction;
   window.firebaseCollection = firestoreSdk.collection;
   window.firebaseCollectionGroup = firestoreSdk.collectionGroup;
   window.firebaseWriteBatch = firestoreSdk.writeBatch;
