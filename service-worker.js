@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "engineer-field-guide-pwa-v40";
+const CACHE_NAME = "engineer-field-guide-pwa-v41";
 const APP_FILES = [
   "./",
   "./index.html",
