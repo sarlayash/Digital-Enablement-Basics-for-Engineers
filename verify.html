@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101a35"><title>Credential verification | Digital Enablement</title>
+<style>
+:root{color-scheme:light;--navy:#101a35;--blue:#254880;--gold:#c5a252;--muted:#69768d}*{box-sizing:border-box}body{margin:0;background:#f2f4f8;color:#1c2945;font:16px/1.55 Arial,sans-serif}.wrap{width:min(920px,calc(100% - 32px));margin:36px auto}.card{overflow:hidden;background:#fff;border:1px solid #dce2ec;border-radius:20px;box-shadow:0 18px 60px #101a3514}.banner{display:block;width:100%;height:auto}.body{padding:clamp(22px,5vw,54px)}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:700;color:#9a7528}h1{margin:8px 0 4px;font-size:clamp(26px,5vw,40px);line-height:1.15;color:var(--navy)}.lead{color:var(--muted);margin:8px 0 24px}.status{padding:14px 16px;border-radius:12px;background:#eef4ff;color:#24447c;font-weight:700}.status.ok{background:#e8f6ed;color:#21633e}.status.bad{background:#fff0ed;color:#9a3328}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:22px 0}.field{padding:14px;border:1px solid #e3e7ee;border-radius:11px;min-width:0}.field small{display:block;color:#778197;text-transform:uppercase;letter-spacing:.7px;font-size:10px}.field strong{display:block;margin-top:4px;overflow-wrap:anywhere}.note{font-size:12px;color:#6d778a;border-top:1px solid #e6e9ef;padding-top:16px}.footer{font-size:12px;color:#788298;margin:14px 4px;text-align:center}a{color:#254880}@media(max-width:580px){.wrap{margin:12px auto}.grid{grid-template-columns:1fr}.body{padding:22px}.banner{min-height:88px;object-fit:cover}}
+</style>
+</head>
+<body><main class="wrap"><article class="card"><img class="banner" src="assets/gu-led-banner.png" alt="Digital Enablement Basics for Engineers — Galgotias University and L&T EduTech"><div class="body"><div class="eyebrow">CREDENTIAL LOOKUP</div><h1>Credential verification</h1><p class="lead">Review the credential details encoded by its QR code.</p><div id="status" class="status" role="status">Checking credential details…</div><section id="details" class="grid" hidden></section><p class="note">The QR checksum detects changes to the encoded details. This static portal does not provide a cryptographic issuer signature or a live issuer database lookup. For independent issuer confirmation, contact the course team.</p></div></article><p class="footer">Digital Enablement Basics for Engineers · Phase 2 · Galgotias University · L&amp;T EduTech</p></main>
+<script>
+(function(){
+ const status=document.getElementById("status"),root=document.getElementById("details");
+ const params=new URLSearchParams(location.search),encoded=params.get("p"),expected=params.get("h");
+ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ function fail(message){status.className="status bad";status.textContent=message;}
+ function hex(bytes){return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");}
+ async function run(){
+  if(!encoded||!expected||!crypto?.subtle){fail("Credential QR data is missing or this browser cannot verify it.");return;}
+  try{
+   const bytes=Uint8Array.from(atob(encoded.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+   const credential=JSON.parse(new TextDecoder().decode(bytes)),id=credential.id;
+   const base={...credential};delete base.id;
+   const digest=hex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(base))));
+   const valid=digest===expected&&id==="DEB-"+String(base.awardType||"AWARD").replace(/[^A-Z0-9]+/gi,"-").toUpperCase()+"-"+digest.slice(0,16).toUpperCase();
+   if(!valid){fail("Checksum mismatch. The QR details may have been changed or damaged.");return;}
+   status.className="status ok";status.textContent="QR checksum verified · credential details match the encoded record";
+   const fields=[["Credential ID",id],["Award",base.awardTitle],["Learner",base.learnerName],["Issued",base.issuedOn],["Course",base.course],["Assessment score",base.scoreText||"—"],["XP recorded",base.xp+" XP"],["Issuer shown",base.issuer]];
+   root.innerHTML=fields.map(([label,value])=>'<div class="field"><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div>').join("");root.hidden=false;
+  }catch(error){fail("Credential data could not be read. Scan the QR code again.");}
+ }
+ run();
+})();
+</script></body></html>
