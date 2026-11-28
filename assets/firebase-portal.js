@@ -37,7 +37,7 @@ const syncedDayFingerprints = new Map();
 let myFeedback = {};
 let myAttendance = {};
 let myNotifications = [];
-let leaderboardEntries = [];
+let leaderboardEntriesByDay = Array.from({ length: 5 }, () => []);
 let activeLeaderboardDay = 0;
 let leaderboardUnsubscribe = null;
 let generatedNotifications = [];
@@ -491,8 +491,8 @@ function renderDailyLeaderboard(day = activeLeaderboardDay) {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
-  const ranked = leaderboardEntries
-    .map(item => ({ name: String(item.displayName || "").trim(), xp: Number(item.dailyXp?.[activeLeaderboardDay]) || 0 }))
+  const ranked = leaderboardEntriesByDay[activeLeaderboardDay]
+    .map(item => ({ name: String(item.displayName || "").trim(), xp: Number(item.xp) || 0 }))
     .filter(item => item.name && item.xp > 0)
     .sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name))
     .slice(0, 10);
@@ -502,19 +502,21 @@ function renderDailyLeaderboard(day = activeLeaderboardDay) {
   if (leaderboardUnsubscribe) status.textContent = ranked.length ? "Top 10 · XP earned for this day" : "No daily XP recorded yet.";
 }
 function startPublicLeaderboard() {
-  leaderboardUnsubscribe?.();
-  leaderboardUnsubscribe = window.firebaseOnSnapshot(
-    window.firebaseCollection(db, "publicLeaderboard"),
-    snapshot => {
-      leaderboardEntries = snapshot.docs.map(item => item.data());
+  leaderboardUnsubscribe?.forEach(unsubscribe => unsubscribe());
+  const subscriptions = [];
+  for (let day = 0; day < 5; day++) {
+    const dayCollection = window.firebaseCollection(db, "publicLeaderboardDays", `day-${day + 1}`, "learners");
+    const topTenQuery = window.firebaseQuery(dayCollection, window.firebaseOrderBy("xp", "desc"), window.firebaseLimit(10));
+    subscriptions.push(window.firebaseOnSnapshot(topTenQuery, snapshot => {
+      leaderboardEntriesByDay[day] = snapshot.docs.map(item => item.data());
       renderDailyLeaderboard();
-    },
-    error => {
+    }, error => {
       console.warn("Public daily leaderboard is unavailable", error);
       const status = document.getElementById("dailyLeaderboardStatus");
-      if (status) status.textContent = "Leaderboard data is not available yet.";
-    }
-  );
+      if (status) status.textContent = "Leaderboard is waiting for the Firebase read rule to be published.";
+    }));
+  }
+  leaderboardUnsubscribe = subscriptions;
   document.getElementById("dailyLeaderboardTabs")?.addEventListener("click", event => {
     const button = event.target.closest("[data-leaderboard-day]");
     if (button) renderDailyLeaderboard(Number(button.dataset.leaderboardDay));
@@ -546,8 +548,11 @@ async function syncNow(login = false) {
     await Promise.all(writes);
     if (currentUser?.uid === user.uid) {
       try {
-        const boardRef = window.firebaseDoc(db, "publicLeaderboard", user.uid);
-        await window.firebaseSetDoc(boardRef, makePublicLeaderboardEntry(user, snapshot), { merge: true });
+        const board = makePublicLeaderboardEntry(user, snapshot);
+        await Promise.all(board.dailyXp.map((xp, day) => {
+          const boardRef = window.firebaseDoc(db, "publicLeaderboardDays", `day-${day + 1}`, "learners", user.uid);
+          return window.firebaseSetDoc(boardRef, { displayName: board.displayName, xp }, { merge: true });
+        }));
       } catch (leaderboardError) {
         console.warn("Daily leaderboard entry could not be updated", leaderboardError);
       }
@@ -1186,6 +1191,9 @@ try {
   window.firebaseGetDoc = firestoreSdk.getDoc;
   window.firebaseGetDocs = firestoreSdk.getDocs;
   window.firebaseSetDoc = firestoreSdk.setDoc;
+  window.firebaseQuery = firestoreSdk.query;
+  window.firebaseOrderBy = firestoreSdk.orderBy;
+  window.firebaseLimit = firestoreSdk.limit;
   window.firebaseRunTransaction = firestoreSdk.runTransaction;
   window.firebaseCollection = firestoreSdk.collection;
   window.firebaseCollectionGroup = firestoreSdk.collectionGroup;
