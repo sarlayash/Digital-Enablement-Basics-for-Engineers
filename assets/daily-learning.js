@@ -517,6 +517,32 @@
     c.textAlign="right";c.fillStyle="#637089";c.font="13px Arial";c.fillText("This award recognizes course learning and assessment completion.",w-margin-16,h-88);
     return canvas;
   }
+  async function drawBadge(day) {
+    if(!Number.isInteger(day)||day<0||day>=lessons.length)throw new Error("Choose a valid daily badge.");
+    var canvas=document.createElement("canvas");canvas.width=1600;canvas.height=1131;
+    var c=canvas.getContext("2d"),w=canvas.width,h=canvas.height;
+    c.fillStyle="#fbfaf6";c.fillRect(0,0,w,h);
+    c.strokeStyle="#152342";c.lineWidth=16;c.strokeRect(22,22,w-44,h-44);
+    c.strokeStyle="#c5a252";c.lineWidth=3;c.strokeRect(42,42,w-84,h-84);
+    var banner=await loadAwardBanner(),bannerX=52,bannerY=52,bannerW=w-104;
+    if(banner){var bannerH=bannerW*(banner.naturalHeight||683)/(banner.naturalWidth||2048);c.drawImage(banner,bannerX,bannerY,bannerW,bannerH);}
+    else{c.fillStyle="#152342";c.fillRect(bannerX,bannerY,bannerW,246);c.fillStyle="#fff";c.font="700 25px Arial";c.textAlign="center";c.fillText("DIGITAL ENABLEMENT BASICS FOR ENGINEERS",w/2,bannerY+128);}
+    c.textAlign="center";c.fillStyle="#a27c2b";c.font="700 16px Arial";c.letterSpacing="2px";c.fillText("DIGITAL ENABLEMENT · DAILY LEARNING BADGE",w/2,594);
+    c.beginPath();c.arc(w/2,665,48,0,Math.PI*2);c.fillStyle="#f5e9c9";c.fill();c.strokeStyle="#c5a252";c.lineWidth=3;c.stroke();
+    c.fillStyle="#172644";c.font="700 37px Arial";c.letterSpacing="0px";c.fillText(lessons[day].icon||"✦",w/2,678);
+    var title=String(badgeTitles[day]||"Digital Enablement Learner"),titleSize=36;c.font="700 "+titleSize+"px Georgia";while(c.measureText(title).width>w-170&&titleSize>23){titleSize-=2;c.font="700 "+titleSize+"px Georgia";}
+    c.fillStyle="#172644";c.fillText(title,w/2,756);
+    c.fillStyle="#667085";c.font="18px Arial";c.fillText("Awarded to",w/2,808);
+    var learner=String(state.name||"Learner").trim(),nameSize=31;c.font="700 "+nameSize+"px Georgia";while(c.measureText(learner).width>w-180&&nameSize>21){nameSize-=2;c.font="700 "+nameSize+"px Georgia";}
+    c.fillStyle="#1c345f";c.fillText(learner,w/2,852);
+    c.strokeStyle="#c5a252";c.lineWidth=2;c.beginPath();c.moveTo(190,875);c.lineTo(w-190,875);c.stroke();
+    c.fillStyle="#4d596f";c.font="17px Arial";wrapCanvas(c,String(badgeDescriptions[day]||"Completed the daily learning pathway and assessment."),w/2,916,1260,23);
+    c.fillStyle="#9a7528";c.font="700 15px Arial";c.fillText("DAY 0"+(day+1)+" · DIGITAL ENABLEMENT BASICS FOR ENGINEERS",w/2,1012);
+    c.fillStyle="#637089";c.font="14px Arial";c.fillText("Issued "+new Date().toLocaleDateString()+" · Mentor Kapil",w/2,1043);
+    c.fillStyle="#8992a3";c.font="12px Arial";c.fillText("Galgotias University · L&T EduTech · Phase 2",w/2,1080);
+    return canvas;
+  }
+
   function wrapCanvas(ctx,text,x,y,maxWidth,lineHeight) {
     var words=text.split(" "),line="",lines=[];
     words.forEach(function(word){var test=line?line+" "+word:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test;});
@@ -533,11 +559,25 @@
     document.getElementById("certificateModal").classList.add("show");
   };
   window.closeCertificate=function(){document.getElementById("certificateModal").classList.remove("show");};
-  window.downloadCertificate=async function(day,format) { if(!portalAllowed(Math.max(0,day))){toast("Portal is closed for maintenance.");return;}
+  function downloadCanvasPng(canvas,base) {
+    canvas.toBlob(function(blob){
+      if(blob){downloadBlob(blob,base+".png");return;}
+      var binary=atob(canvas.toDataURL("image/png").split(",")[1]),bytes=Uint8Array.from(binary,function(ch){return ch.charCodeAt(0);});
+      downloadBlob(new Blob([bytes],{type:"image/png"}),base+".png");
+    },"image/png");
+  }
+  window.downloadBadge=async function(day,format) {
+    if(!Number.isInteger(day)||day<0||day>=lessons.length){toast("Choose a valid daily badge.");return;}
+    if(!fullDay(day)){toast("Complete all 8 sections to unlock this badge.");return;}
+    if(format!=="png"&&format!=="pdf"){toast("Choose PNG or PDF for your badge download.");return;}
+    try{var canvas=await drawBadge(day),base="Day-"+(day+1)+"-Badge";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,true);}
+    catch(error){toast(error&&error.message?error.message:"Badge export failed. Please try again.");}
+  };
+  window.downloadCertificate=async function(day,format) { if(format!=="png"&&format!=="pdf"){toast("Choose PNG or PDF for your certificate download.");return;}
     if(day===-1&&!allPostPassed()){toast(allDaysComplete()?"Pass the five-day final assessment to unlock the course certificate.":"Complete all five days and pass the final assessment to unlock the course certificate.");return;}
     if(day>=0&&!fullDay(day)){toast("Complete all 8 daily sections to unlock this certificate.");return;}
     var canvas=await drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";
-    if(format==="png"){canvas.toBlob(function(blob){downloadBlob(blob,base+".png");},"image/png");return;}
+    if(format==="png"){downloadCanvasPng(canvas,base);return;}
     canvasPdf(canvas,base,false);
   };
   function downloadBlob(blob,name) {
