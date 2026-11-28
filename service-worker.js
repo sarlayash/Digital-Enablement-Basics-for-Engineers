@@ -1,16 +1,19 @@
 "use strict";
 
-const CACHE_NAME = "engineer-field-guide-pwa-v37";
+const CACHE_NAME = "engineer-field-guide-pwa-v38";
 const APP_FILES = [
   "./",
   "./index.html",
+  "./verify.html",
   "./manifest.webmanifest",
   "./assets/premium-app-logo.svg",
   "./assets/pwa.js",
   "./assets/hourly-reminders.js?v=hourly-20261127",
-  "./assets/daily-learning.js?v=score-retention-20261128",
+  "./assets/qrcode.min.js?v=credential-qr-20261128",
+  "./assets/qrcodejs-LICENSE.txt",
+  "./assets/daily-learning.js?v=notifications-qr-20261128",
   "./assets/firebase-bridge.js?v=profile-20261126",
-  "./assets/firebase-portal.js?v=firebase-retention-20261128",
+  "./assets/firebase-portal.js?v=daily-notifications-20261128",
   "./assets/cloud-hero.png",
   "./assets/security-hero.png",
   "./assets/ai-hero.png",
