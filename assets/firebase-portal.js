@@ -37,6 +37,7 @@ const syncedDayFingerprints = new Map();
 let myFeedback = {};
 let myAttendance = {};
 let myNotifications = [];
+let generatedNotifications = [];
 let myFeedbackUnsubscribe = null;
 let myAttendanceUnsubscribe = null;
 let myNotificationsUnsubscribe = null;
@@ -137,7 +138,7 @@ function installPortalControls() {
     .firebase-admin-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}.firebase-admin-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:17px}.firebase-admin-kpi small{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.7px}.firebase-admin-kpi strong{display:block;margin-top:8px;font:800 24px Manrope;color:#203052}
     .firebase-analysis{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px;margin-bottom:16px}.firebase-analysis h2,.firebase-users h2{font:800 15px Manrope;margin:0}.firebase-analysis>p{font-size:11px;color:var(--muted);line-height:1.5}.firebase-day-chart{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:end;margin-top:16px}.firebase-day-bar{display:grid;gap:7px;text-align:center}.firebase-day-bar>div{height:88px;display:flex;align-items:flex-end;justify-content:center;background:#f4f6fa;border-radius:9px;overflow:hidden}.firebase-day-bar i{display:block;width:55%;min-height:4px;background:linear-gradient(#7590f5,#3e61dc);border-radius:8px 8px 0 0}.firebase-day-bar b{font:10px 'DM Mono';color:#35425d}.firebase-day-bar small{font-size:9px;color:var(--muted)}
     .firebase-users{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px}.firebase-users-toolbar{display:flex;align-items:center;gap:9px;margin:14px 0}.firebase-users-toolbar input{flex:1;min-width:120px;border:1px solid #dce1ea;border-radius:9px;padding:10px;font-size:11px}.firebase-users-toolbar button{white-space:nowrap}.firebase-table-wrap{overflow:auto;border:1px solid #e8ebf1;border-radius:11px}.firebase-table{width:100%;border-collapse:collapse;min-width:980px;text-align:left}.firebase-table th{position:sticky;top:0;background:#f7f8fb;color:#6b758a;font:10px 'DM Mono';text-transform:uppercase;letter-spacing:.3px;padding:11px 10px;border-bottom:1px solid #e6e9ef}.firebase-table td{padding:11px 10px;border-bottom:1px solid #edf0f4;color:#35415b;font-size:10px;vertical-align:top}.firebase-table tr:last-child td{border-bottom:0}.firebase-table .user-cell b,.firebase-table .user-cell span{display:block;max-width:180px;overflow-wrap:anywhere}.firebase-table .user-cell span{font-size:9px;color:#7c8699;margin-top:4px}.admin-detail-button{margin-top:8px!important;font-size:9px!important;padding:7px 8px!important}.firebase-detail{margin-top:16px;padding:19px;background:linear-gradient(145deg,#f8fbff,#fff);border:1px solid #d7e1f2;border-radius:16px}.firebase-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}.firebase-detail-head h2{margin:5px 0;font:800 20px Manrope;color:#213253}.firebase-detail-head p{margin:0;color:#69758b;font-size:11px}.firebase-detail-scroll{display:grid;gap:12px}.firebase-detail-scroll h3{font:800 13px Manrope;color:#2b3b5c;margin:5px 0 -3px}.firebase-error{padding:10px 12px;background:#fff1ef;color:#9b382e;border-radius:9px;font-size:11px}.firebase-empty{padding:28px;text-align:center;color:var(--muted);font-size:12px}.firebase-sync-note{font-size:10px;color:var(--muted);margin-top:10px}
-    .notification-nav-count{float:right;min-width:18px;padding:2px 5px;border-radius:99px;background:#e8efff;color:#3d58be;font:9px 'DM Mono';text-align:center}.firebase-profile,.firebase-notifications{padding:26px 0 50px}.firebase-profile[hidden],.firebase-notifications[hidden]{display:none}.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:17px}.firebase-profile-head h1,.firebase-notifications-head h1{font:800 26px Manrope;margin:5px 0;color:#203052}.firebase-profile-head p,.firebase-notifications-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}.firebase-profile-card{max-width:850px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:16px}.firebase-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.firebase-profile-field{display:grid;gap:6px}.firebase-profile-field label{font-size:11px;font-weight:700;color:#43516d}.firebase-profile-field input{width:100%;border:1px solid #dce2ec;border-radius:9px;padding:10px 11px;color:#33415b;font-size:12px}.firebase-profile-field small{font-size:10px;color:#758096;line-height:1.45}.firebase-profile-field.wide{grid-column:1/-1}.firebase-profile-card .action{margin-top:17px}.firebase-profile-sync{margin:12px 0 0;color:#55708d;font-size:10px}.firebase-notification-list{display:grid;gap:11px;max-width:900px}.firebase-notification{padding:16px;border:1px solid #dfe5ee;border-radius:14px;background:#fff}.firebase-notification-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.firebase-notification h3{margin:0;font:800 14px Manrope;color:#253553}.firebase-notification p{margin:9px 0 0;color:#5f6b82;font-size:12px;line-height:1.65;white-space:pre-wrap}.firebase-notification time{font:10px 'DM Mono';color:#768197;white-space:nowrap}.firebase-comms{margin:0 0 16px;padding:19px;border:1px solid #d7e1f2;border-radius:16px;background:linear-gradient(145deg,#f6f9ff,#fff)}.firebase-comms h2{margin:0;font:800 16px Manrope;color:#243454}.firebase-comms p{font-size:11px;line-height:1.55;color:#67738a;margin:6px 0 0}.firebase-comms-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.firebase-comms-grid label{display:grid;gap:6px;color:#49566f;font-size:10px;font-weight:700}.firebase-comms-grid input,.firebase-comms-grid select,.firebase-comms-grid textarea{width:100%;border:1px solid #dce2ed;border-radius:9px;padding:10px;background:#fff;color:#35425d;font-size:11px}.firebase-comms-grid textarea{min-height:94px;resize:vertical}.firebase-comms-grid .wide{grid-column:1/-1}.firebase-comms-check{display:flex!important;grid-template-columns:auto 1fr;align-items:center;gap:8px!important;font-size:11px!important}.firebase-comms-check input{width:auto}.firebase-comms-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:13px}.firebase-comms-actions small{color:#69768d;font-size:10px;line-height:1.45}
+    .firebase-notification-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.firebase-notification-actions a{font-size:11px;font-weight:700;color:#3c59b7;text-decoration:none}.notification-open-day{padding:7px 10px!important;font-size:10px!important}.notification-nav-count{float:right;min-width:18px;padding:2px 5px;border-radius:99px;background:#e8efff;color:#3d58be;font:9px 'DM Mono';text-align:center}.firebase-profile,.firebase-notifications{padding:26px 0 50px}.firebase-profile[hidden],.firebase-notifications[hidden]{display:none}.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:17px}.firebase-profile-head h1,.firebase-notifications-head h1{font:800 26px Manrope;margin:5px 0;color:#203052}.firebase-profile-head p,.firebase-notifications-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}.firebase-profile-card{max-width:850px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:16px}.firebase-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.firebase-profile-field{display:grid;gap:6px}.firebase-profile-field label{font-size:11px;font-weight:700;color:#43516d}.firebase-profile-field input{width:100%;border:1px solid #dce2ec;border-radius:9px;padding:10px 11px;color:#33415b;font-size:12px}.firebase-profile-field small{font-size:10px;color:#758096;line-height:1.45}.firebase-profile-field.wide{grid-column:1/-1}.firebase-profile-card .action{margin-top:17px}.firebase-profile-sync{margin:12px 0 0;color:#55708d;font-size:10px}.firebase-notification-list{display:grid;gap:11px;max-width:900px}.firebase-notification{padding:16px;border:1px solid #dfe5ee;border-radius:14px;background:#fff}.firebase-notification-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.firebase-notification h3{margin:0;font:800 14px Manrope;color:#253553}.firebase-notification p{margin:9px 0 0;color:#5f6b82;font-size:12px;line-height:1.65;white-space:pre-wrap}.firebase-notification time{font:10px 'DM Mono';color:#768197;white-space:nowrap}.firebase-comms{margin:0 0 16px;padding:19px;border:1px solid #d7e1f2;border-radius:16px;background:linear-gradient(145deg,#f6f9ff,#fff)}.firebase-comms h2{margin:0;font:800 16px Manrope;color:#243454}.firebase-comms p{font-size:11px;line-height:1.55;color:#67738a;margin:6px 0 0}.firebase-comms-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.firebase-comms-grid label{display:grid;gap:6px;color:#49566f;font-size:10px;font-weight:700}.firebase-comms-grid input,.firebase-comms-grid select,.firebase-comms-grid textarea{width:100%;border:1px solid #dce2ed;border-radius:9px;padding:10px;background:#fff;color:#35425d;font-size:11px}.firebase-comms-grid textarea{min-height:94px;resize:vertical}.firebase-comms-grid .wide{grid-column:1/-1}.firebase-comms-check{display:flex!important;grid-template-columns:auto 1fr;align-items:center;gap:8px!important;font-size:11px!important}.firebase-comms-check input{width:auto}.firebase-comms-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:13px}.firebase-comms-actions small{color:#69768d;font-size:10px;line-height:1.45}
     @media(max-width:800px){.firebase-admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.firebase-admin-head,.firebase-detail-head,.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{flex-direction:column}.firebase-users{padding:13px}.firebase-users-toolbar{flex-wrap:wrap}.firebase-users-toolbar input{flex-basis:100%}.firebase-profile-grid,.firebase-comms-grid{grid-template-columns:1fr}.firebase-profile-field.wide,.firebase-comms-grid .wide{grid-column:auto}.firebase-comms-actions{align-items:flex-start;flex-direction:column}}
   </style>`);
 
@@ -278,19 +279,80 @@ async function hydrateProfileFromCloud(user) {
   if (typeof window.save === "function") window.save();
 }
 
+const DAILY_REFERENCE_LINKS = [
+  { title: "AWS: What is cloud computing?", url: "https://docs.aws.amazon.com/whitepapers/latest/aws-overview/what-is-cloud-computing.html" },
+  { title: "CISA: Secure Our World", url: "https://www.cisa.gov/secure-our-world" },
+  { title: "NIST: AI Risk Management Framework", url: "https://www.nist.gov/itl/ai-risk-management-framework" },
+  { title: "NIST: Internet of Things", url: "https://www.nist.gov/internet-things-iot" },
+  { title: "NASA: Learning Resources", url: "https://www.nasa.gov/learning-resources/" }
+];
+function generatedNoticeKey(uid) { return "fieldGuideNotifications:" + uid; }
+function addGeneratedNotification(item) {
+  if (!currentUser) return;
+  const notice = { ...item, createdAt: item.createdAt || new Date().toISOString(), localOnly: true };
+  generatedNotifications.unshift(notice);
+  generatedNotifications = generatedNotifications.slice(0, 100);
+  try { localStorage.setItem(generatedNoticeKey(currentUser.uid), JSON.stringify(generatedNotifications)); } catch (_) {}
+  updateNotificationBadge();
+  if (!document.getElementById("firebaseNotificationsPanel")?.hidden) renderNotificationsPanel();
+}
+function loadGeneratedNotifications(user) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(generatedNoticeKey(user.uid)) || "[]");
+    generatedNotifications = Array.isArray(saved) ? saved.slice(0, 100) : [];
+  } catch (_) { generatedNotifications = []; }
+}
+function addDailyLearnerNotifications(user, state) {
+  if (!user || window.firebaseIsAdmin) return;
+  const today = localSessionDate(), key = "fieldGuideDailyWelcome:" + user.uid;
+  try { if (localStorage.getItem(key) === today) return; localStorage.setItem(key, today); } catch (_) {}
+  addGeneratedNotification({ kind: "Welcome", title: "Welcome back to your learning day", message: "Welcome back, " + String(state?.profile?.fullName || state?.name || user.displayName || "Learner") + ". Your five-day engineering journey is ready.", day: 0, referenceTitle: DAILY_REFERENCE_LINKS[0].title, referenceUrl: DAILY_REFERENCE_LINKS[0].url });
+  const day = Array.from({ length: 5 }, (_, i) => i).find(i => !state?.dayAwards?.[i]);
+  if (day !== undefined) {
+    const daily = makeDaySummary(state || {}, day);
+    addGeneratedNotification({ kind: "Reminder", title: "Continue Day " + (day + 1) + " · " + daily.completedSections + " of 8 sections", message: "Complete the remaining learning sections today to earn your XP, badge and certificate.", day, referenceTitle: DAILY_REFERENCE_LINKS[day].title, referenceUrl: DAILY_REFERENCE_LINKS[day].url });
+    const pre = state?.assessments?.[day]?.pre;
+    if (!pre?.passed) addGeneratedNotification({ kind: "Assessment reminder", title: "Day " + (day + 1) + " pre-assessment is pending", message: "Take the pre-assessment during the daily learning window, then continue the lesson.", day, referenceTitle: DAILY_REFERENCE_LINKS[day].title, referenceUrl: DAILY_REFERENCE_LINKS[day].url });
+    const post = state?.assessments?.[day]?.post;
+    if (!post?.passed) addGeneratedNotification({ kind: "Assessment reminder", title: "Day " + (day + 1) + " post-assessment is pending", message: "Finish the lesson and post-assessment to complete today’s checklist.", day, referenceTitle: DAILY_REFERENCE_LINKS[day].title, referenceUrl: DAILY_REFERENCE_LINKS[day].url });
+  } else {
+    const final = state?.finalAssessment;
+    if (!final?.passed) addGeneratedNotification({ kind: "Certificate reminder", title: "Your course certificate is one step away", message: "Complete the final assessment to unlock and download your course certificate.", day: 4, referenceTitle: DAILY_REFERENCE_LINKS[4].title, referenceUrl: DAILY_REFERENCE_LINKS[4].url });
+  }
+  const badgeDay = (state?.dayBadges || []).find(i => !(state?.badgeDownloads || []).includes(i));
+  if (badgeDay !== undefined) addGeneratedNotification({ kind: "Badge reminder", title: "Download your Day " + (badgeDay + 1) + " badge", message: "Your daily badge is ready in the Certificate area. Download it as PNG or PDF.", day: badgeDay, referenceTitle: DAILY_REFERENCE_LINKS[badgeDay].title, referenceUrl: DAILY_REFERENCE_LINKS[badgeDay].url });
+  const hasCourseCert = (state?.done || []).length === 5 && state?.finalAssessment?.passed;
+  if (hasCourseCert && !(state?.certificateDownloads || []).includes("course")) addGeneratedNotification({ kind: "Certificate reminder", title: "Download your course certificate", message: "Your course certificate is ready. Download it as PNG or PDF and share your achievement.", day: 4, referenceTitle: DAILY_REFERENCE_LINKS[4].title, referenceUrl: DAILY_REFERENCE_LINKS[4].url });
+  addGeneratedNotification({ kind: "Thank you", title: "Thank you for learning with us today", message: "We appreciate your effort. Keep your notes, badges and assessment feedback close as you move through the five-day sprint.", day: day === undefined ? 4 : day, referenceTitle: DAILY_REFERENCE_LINKS[day === undefined ? 4 : day].title, referenceUrl: DAILY_REFERENCE_LINKS[day === undefined ? 4 : day].url });
+}
+window.addEventListener("course:notification", event => {
+  const item = event.detail || {};
+  if (!item.title || !item.message) return;
+  addGeneratedNotification(item);
+});
 function updateNotificationBadge() {
   const badge = document.getElementById("notificationNavCount");
   if (!badge) return;
-  const count = myNotifications.length;
+  const count = myNotifications.length + generatedNotifications.length;
   badge.hidden = count === 0;
   badge.textContent = count > 99 ? "99+" : String(count);
 }
-
+function notificationLink(item) {
+  const day = Number(item.day);
+  const open = Number.isInteger(day) && day >= 0 && day < 5 ? `<button class="action secondary notification-open-day" type="button" onclick="showHome();openDay(${day})">Open Day ${day + 1}</button>` : "";
+  let reference = "";
+  try {
+    const url = new URL(item.referenceUrl || "");
+    if (url.protocol === "https:") reference = `<a href="${escapeHTML(url.href)}" target="_blank" rel="noopener noreferrer">${escapeHTML(item.referenceTitle || "Learning reference")} ↗</a>`;
+  } catch (_) {}
+  return open || reference ? `<div class="firebase-notification-actions">${open}${reference ? `<span>${reference}</span>` : ""}</div>` : "";
+}
 function renderNotificationsPanel() {
   const root = document.getElementById("firebaseNotificationsPanel");
   if (!root) return;
-  const cards = myNotifications.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course notification").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course notification")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p></article>`).join("");
-  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">MY NOTIFICATIONS &amp; ACTIONS</span><h1 id="firebaseNotificationsTitle">My Notifications and Actions Section</h1><p>Your course messages, reminders, and actions appear here.</p></div><span class="firebase-live-indicator">${currentUser ? "LIVE NOTIFICATIONS" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No notifications yet. New messages and actions will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
+  const items = [...myNotifications, ...generatedNotifications].sort((a, b) => (dateValue(b.createdAt)?.getTime() || 0) - (dateValue(a.createdAt)?.getTime() || 0));
+  const cards = items.map(item => `<article class="firebase-notification"><div class="firebase-notification-head"><div><span class="eyebrow" style="color:#5368c9">${escapeHTML(String(item.kind || "Course notification").toUpperCase())}</span><h3>${escapeHTML(item.title || "Course notification")}</h3></div><time>${escapeHTML(formatDate(item.createdAt))}</time></div><p>${escapeHTML(item.message || "")}</p>${notificationLink(item)}</article>`).join("");
+  root.innerHTML = `<header class="firebase-notifications-head"><div><span class="eyebrow" style="color:#5368c9">MY NOTIFICATIONS &amp; ACTIONS</span><h1 id="firebaseNotificationsTitle">My Notifications and Actions Section</h1><p>Daily welcome, learning reminders, assessment scores, downloads, and course references.</p></div><span class="firebase-live-indicator">${currentUser ? "DAILY REMINDERS ACTIVE" : "SIGN IN TO SYNC"}</span></header><div class="firebase-notification-list">${cards || `<section class="panel"><p>${currentUser ? "No notifications yet. New messages and actions will appear here." : "Sign in with Google to receive course announcements and reminders."}</p></section>`}</div>`;
 }
 
 function dateValue(value) {
@@ -1133,6 +1195,7 @@ try {
       myFeedback = {};
       myAttendance = {};
       myNotifications = [];
+      generatedNotifications = [];
       updateNotificationBadge();
       setAdminAccess(false);
       if (previous) window.deactivateFirebaseLearner?.(previous.uid);
@@ -1146,6 +1209,9 @@ try {
       await hydrateProfileFromCloud(user);
       startLearnerActivityListeners(user);
       latestState = window.getLearnerStateForFirebase?.() || {};
+      loadGeneratedNotifications(user);
+      addDailyLearnerNotifications(user, latestState);
+      updateNotificationBadge();
       await syncNow(true);
       resetIdleLogoutTimer();
       clearInterval(attendanceAutoCloseTimer);
