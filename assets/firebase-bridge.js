@@ -12,6 +12,8 @@
 
   window.activateFirebaseLearner = function (user, isAdmin) {
     var uid = user.uid;
+    var priorHydration = window.firebaseProgressHydrating;
+    window.firebaseProgressHydrating = true;
     var owner = localStorage.getItem(ownerKey);
     var activeRaw = localStorage.getItem(stateKey);
     var ownKey = stateKey + ":" + uid;
@@ -28,7 +30,8 @@
     document.getElementById("login")?.classList.remove("show");
     var emailLine = document.querySelector(".profile > div:nth-child(2) small");
     if (emailLine) emailLine.textContent = user.email || (isAdmin ? "Course administrator" : "Google learner account");
-    save();
+    try { save(); }
+    finally { window.firebaseProgressHydrating = priorHydration; }
     window.firebaseSetAdminAccess?.(isAdmin);
   };
 

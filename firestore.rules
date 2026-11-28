@@ -102,6 +102,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Collection-group reads are required by the admin dashboard's live score and activity queries.
+    // These rules are read-only and grant access only to the authenticated course administrator.
+    match /{path=**}/days/{dayId} {
+      allow get, list: if isAdmin();
+    }
+    match /{path=**}/feedback/{feedbackId} {
+      allow get, list: if isAdmin();
+    }
+    match /{path=**}/attendance/{attendanceId} {
+      allow get, list: if isAdmin();
+    }
+
     match /users/{userId}/days/{dayId} {
       allow get, list: if isOwner(userId) || isAdmin();
       allow create, update: if isOwner(userId)
@@ -181,6 +193,18 @@ service cloud.firestore {
         && request.resource.data.sessionDate is string && request.resource.data.sessionDate.size() == 10
         && request.resource.data.punchedInAt is timestamp
         && (request.resource.data.punchedOutAt == null || request.resource.data.punchedOutAt is timestamp)
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
+    }
+
+    match /users/{userId}/progress/{progressId} {
+      allow get, list: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && progressId == 'current'
+        && request.resource.data.keys().hasOnly(['state', 'version', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['state', 'version', 'updatedAt'])
+        && request.resource.data.state is map
+        && request.resource.data.version == 1
         && request.resource.data.updatedAt is timestamp;
       allow delete: if false;
     }

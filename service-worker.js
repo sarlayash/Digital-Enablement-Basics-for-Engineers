@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "engineer-field-guide-pwa-v43";
+const CACHE_NAME = "engineer-field-guide-pwa-v44";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -12,8 +12,8 @@ const APP_FILES = [
   "./assets/qrcode.min.js?v=credential-qr-20261128",
   "./assets/qrcodejs-LICENSE.txt",
   "./assets/daily-learning.js?v=awards-notices-20261128",
-  "./assets/firebase-bridge.js?v=profile-20261126",
-  "./assets/firebase-portal.js?v=powerbi-admin-20261128",
+  "./assets/firebase-bridge.js?v=cloud-sync-20261128",
+  "./assets/firebase-portal.js?v=cloud-sync-20261128",
   "./assets/cloud-hero.png",
   "./assets/security-hero.png",
   "./assets/ai-hero.png",

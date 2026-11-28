@@ -44,6 +44,8 @@ const syncedDayFingerprints = new Map();
 let myFeedback = {};
 let myAttendance = {};
 let myNotifications = [];
+let myFeedbackServerReady = false;
+let myAttendanceServerReady = false;
 let leaderboardEntriesByDay = Array.from({ length: 5 }, () => []);
 let activeLeaderboardDay = 0;
 let leaderboardUnsubscribe = null;
@@ -51,6 +53,7 @@ let generatedNotifications = [];
 let myFeedbackUnsubscribe = null;
 let myAttendanceUnsubscribe = null;
 let myNotificationsUnsubscribe = null;
+let myProgressUnsubscribe = null;
 
 function installPortalControls() {
   const login = document.querySelector(".loginbox");
@@ -254,7 +257,9 @@ function readableError(error) {
   if (code.includes("operation-not-allowed")) return "Google sign-in is not enabled yet in Firebase Authentication.";
   if (code.includes("unauthorized-domain")) return "Add sarlayash.github.io to Firebase Authentication’s authorized domains.";
   if (code.includes("popup-blocked")) return "Allow the Google sign-in pop-up, then try again.";
-  if (code.includes("permission-denied")) return "Sign-in worked, but Firestore access is not configured. Deploy firestore.rules and create the database.";
+  if (code.includes("permission-denied")) return "Firebase denied a Firestore read or write. Check that the latest rules are published and refresh; local progress remains saved on this device.";
+  if (code.includes("failed-precondition")) return "Firestore needs setup or an index. Confirm the database is initialized and review Firebase Console for the required index.";
+  if (code.includes("unavailable") || code.includes("deadline-exceeded")) return "Firebase is temporarily unreachable. Progress is saved on this device and will retry when the connection returns.";
   return error?.message || "Firebase could not complete that request. Please try again.";
 }
 
@@ -469,7 +474,17 @@ function makeSummary(user, state, login = false) {
   });
   assessmentAttempts += (state?.finalAssessment?.attempts || []).length + (state?.finalAssessment?.active ? 1 : 0);
   if (state?.finalAssessment?.passed) assessmentPasses++;
+  const legacy = state?._legacySummary || {};
+  const legacyDays = state?._legacyDayRecords || {};
+  const restoredCompletedDays = Object.entries(legacyDays).filter(([, record]) => !!record?.dayComplete).map(([day]) => Number(day) - 1);
+  const mergedCompletedDays = Array.from(new Set(completedDays.concat((legacy.completedDays || []).map(Number), restoredCompletedDays))).filter(day => Number.isInteger(day) && day >= 0 && day < 5).sort((a, b) => a - b);
+  sectionsCompleted = Math.max(sectionsCompleted, Number(legacy.sectionsCompleted) || 0);
+  assessmentAttempts = Math.max(assessmentAttempts, Number(legacy.assessmentAttempts) || 0);
+  assessmentPasses = Math.max(assessmentPasses, Number(legacy.assessmentPasses) || 0);
+  mockTestsPassed = Math.max(mockTestsPassed, Number(legacy.mockTestsPassed) || 0);
   const attempt = latestAttempt(state);
+  const legacyAttemptDate = dateValue(legacy.lastAttemptAt);
+  const lastAttemptDate = attempt?.date || legacyAttemptDate;
   const now = new Date();
   const result = {
     uid: user.uid,
@@ -480,23 +495,23 @@ function makeSummary(user, state, login = false) {
     githubUrl: String(profile.githubUrl || "").trim().slice(0, 300),
     domain: String(profile.domain || "").trim().slice(0, 120),
     collegeName: String(profile.collegeName || "").trim().slice(0, 180),
-    feedbackCount: feedbackItems.length,
-    attendanceCount: attendanceItems.length,
-    averageContentRating: averageRating("contentRating"),
-    averageDeliveryRating: averageRating("deliveryRating"),
+    feedbackCount: Math.max(feedbackItems.length, Number(legacy.feedbackCount) || 0),
+    attendanceCount: Math.max(attendanceItems.length, Number(legacy.attendanceCount) || 0),
+    averageContentRating: myFeedbackServerReady && feedbackItems.length ? averageRating("contentRating") : Number(legacy.averageContentRating) || 0,
+    averageDeliveryRating: myFeedbackServerReady && feedbackItems.length ? averageRating("deliveryRating") : Number(legacy.averageDeliveryRating) || 0,
     lastActivityAt: window.firebaseServerTimestamp(),
-    lastAttemptAt: attempt ? window.firebaseTimestampFromDate(attempt.date) : null,
-    lastAttemptLabel: attempt?.label || "No assessment attempts yet",
-    xp: Math.max(0, Math.floor(Number(state?.xp) || 0)),
-    completedDays,
-    badges: (state?.dayBadges || []).map(Number).filter(day => Number.isInteger(day) && day >= 0 && day < 5),
+    lastAttemptAt: lastAttemptDate ? window.firebaseTimestampFromDate(lastAttemptDate) : null,
+    lastAttemptLabel: attempt?.label || legacy.lastAttemptLabel || "No assessment attempts yet",
+    xp: Math.max(0, Math.floor(Number(state?.xp) || 0), Number(legacy.xp) || 0),
+    completedDays: mergedCompletedDays,
+    badges: Array.from(new Set((state?.dayBadges || []).concat(legacy.badges || []).map(Number))).filter(day => Number.isInteger(day) && day >= 0 && day < 5),
     sectionsCompleted: Math.min(40, sectionsCompleted),
     sectionsTotal: 40,
     assessmentPasses,
     assessmentAttempts,
     mockTestsPassed,
-    notesCount: Object.values(state?.notes || {}).filter(note => String(note || "").trim()).length,
-    assignmentCount: Object.values(state?.answers || {}).filter(answer => String(answer || "").trim()).length,
+    notesCount: Math.max(Object.values(state?.notes || {}).filter(note => String(note || "").trim()).length, Number(legacy.notesCount) || 0),
+    assignmentCount: Math.max(Object.values(state?.answers || {}).filter(answer => String(answer || "").trim()).length, Number(legacy.assignmentCount) || 0),
     updatedAt: window.firebaseServerTimestamp()
   };
   if (login) result.lastLoginAt = window.firebaseServerTimestamp();
@@ -507,10 +522,28 @@ function makeSummary(user, state, login = false) {
 
 function makeDaySummary(state, day) {
   const phases=state?.assessments?.[day]||{},section=state?.dailySections?.[day]||{},pre=phases.pre||{},post=phases.post||{},mock=state?.mockTests?.[day]||{},final=day===4?(state?.finalAssessment||{}):{},wheelQuestions=Math.min(25,(state?.wheel?.[day]?.seen||[]).length);
-  const completedSections=["topics","simulator","notes","placement","assignment"].filter(key=>!!section[key]).length+(pre.passed?1:0)+(post.passed?1:0)+(wheelQuestions>=25?1:0);
+  const legacy=state?._legacyDayRecords?.[day+1]||{};
+  const completedSections=Math.max(["topics","simulator","notes","placement","assignment"].filter(key=>!!section[key]).length+(pre.passed?1:0)+(post.passed?1:0)+(wheelQuestions>=25?1:0),Number(legacy.completedSections)||0);
   const best=item=>(item?.attempts||[]).reduce((score,attempt)=>Math.max(score,Number(attempt.score)||0),0);
   const scores=item=>(item?.attempts||[]).map(x=>({score:Number(x.score)||0,passed:!!x.passed,at:x.at||null,answered:Number(x.answered)||0}));
-  return {day:day+1,completedSections,sectionsTotal:8,preAttempts:(pre.attempts||[]).length+(pre.active?1:0),prePassed:!!pre.passed,preBest:best(pre),preScores:scores(pre),postAttempts:(post.attempts||[]).length+(post.active?1:0),postPassed:!!post.passed,postBest:best(post),postScores:scores(post),mockAttempts:(mock.attempts||[]).length+(mock.active?1:0),mockPassed:(mock.attempts||[]).some(x=>!!x.passed),mockBest:best(mock),mockScores:scores(mock),finalAttempts:(final.attempts||[]).length+(final.active?1:0),finalPassed:!!final.passed,finalBest:best(final),finalScores:scores(final),wheelQuestions,notesSaved:!!String(state?.notes?.[day]||"").trim(),assignmentSubmitted:!!String(state?.answers?.[day]||"").trim(),badgeEarned:(state?.dayBadges||[]).includes(day),dayComplete:!!state?.dayAwards?.[day]};
+  const mergeScores=(current,old)=>mergeLearnerProgress({values:current},{values:Array.isArray(old)?old:[]}).values||[];
+  const preScores=mergeScores(scores(pre),legacy.preScores),postScores=mergeScores(scores(post),legacy.postScores),mockScores=mergeScores(scores(mock),legacy.mockScores),finalScores=mergeScores(scores(final),legacy.finalScores);
+  return {
+    day:day+1,completedSections,sectionsTotal:8,
+    preAttempts:Math.max((pre.attempts||[]).length+(pre.active?1:0),Number(legacy.preAttempts)||0),
+    prePassed:!!pre.passed||!!legacy.prePassed,preBest:Math.max(best(pre),Number(legacy.preBest)||0),preScores,
+    postAttempts:Math.max((post.attempts||[]).length+(post.active?1:0),Number(legacy.postAttempts)||0),
+    postPassed:!!post.passed||!!legacy.postPassed,postBest:Math.max(best(post),Number(legacy.postBest)||0),postScores,
+    mockAttempts:Math.max((mock.attempts||[]).length+(mock.active?1:0),Number(legacy.mockAttempts)||0),
+    mockPassed:(mock.attempts||[]).some(x=>!!x.passed)||!!legacy.mockPassed,mockBest:Math.max(best(mock),Number(legacy.mockBest)||0),mockScores,
+    finalAttempts:Math.max((final.attempts||[]).length+(final.active?1:0),Number(legacy.finalAttempts)||0),
+    finalPassed:!!final.passed||!!legacy.finalPassed,finalBest:Math.max(best(final),Number(legacy.finalBest)||0),finalScores,
+    wheelQuestions:Math.max(wheelQuestions,Number(legacy.wheelQuestions)||0),
+    notesSaved:!!String(state?.notes?.[day]||"").trim()||!!legacy.notesSaved,
+    assignmentSubmitted:!!String(state?.answers?.[day]||"").trim()||!!legacy.assignmentSubmitted,
+    badgeEarned:(state?.dayBadges||[]).includes(day)||!!legacy.badgeEarned,
+    dayComplete:!!state?.dayAwards?.[day]||!!legacy.dayComplete
+  };
 }
 
 function makePublicLeaderboardEntry(user, state) {
@@ -570,47 +603,215 @@ function startPublicLeaderboard() {
     if (button) renderDailyLeaderboard(Number(button.dataset.leaderboardDay));
   });
 }
+function learnerProgressFingerprint(value) {
+  const normalize = item => {
+    if (Array.isArray(item)) return item.map(normalize);
+    if (item && typeof item === "object") {
+      if (typeof item.toDate === "function") return item.toDate().toISOString();
+      return Object.keys(item).sort().reduce((result, key) => { result[key] = normalize(item[key]); return result; }, {});
+    }
+    return item;
+  };
+  return JSON.stringify(normalize(value));
+}
+function mergeLearnerProgress(localState, cloudState) {
+  const local = localState && typeof localState === "object" && !Array.isArray(localState) ? localState : {};
+  const cloud = cloudState && typeof cloudState === "object" && !Array.isArray(cloudState) ? cloudState : {};
+  const localAt = Number(local._firebaseLocalUpdatedAt) || 0;
+  const cloudAt = Number(cloud._firebaseLocalUpdatedAt) || 0;
+  const preferLocal = !Object.keys(cloud).length || localAt >= cloudAt;
+  const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  const merge = (left, right) => {
+    if (left === undefined) return clone(right);
+    if (right === undefined) return clone(left);
+    if (Array.isArray(left) && Array.isArray(right)) {
+      const first = preferLocal ? left : right;
+      const second = preferLocal ? right : left;
+      const found = new Map();
+      [...first, ...second].forEach(item => {
+        const key = learnerProgressFingerprint(item);
+        if (!found.has(key)) found.set(key, item);
+      });
+      return Array.from(found.values()).map(clone);
+    }
+    const leftObject = left && typeof left === "object" && !Array.isArray(left);
+    const rightObject = right && typeof right === "object" && !Array.isArray(right);
+    if (leftObject && rightObject) {
+      const result = {};
+      new Set([...Object.keys(left), ...Object.keys(right)]).forEach(key => {
+        result[key] = merge(left[key], right[key]);
+      });
+      return result;
+    }
+    if (typeof left === "number" && typeof right === "number") return Math.max(left, right);
+    if (typeof left === "boolean" && typeof right === "boolean") return left || right;
+    if (left === null || right === null) {
+      const selected = preferLocal ? left : right;
+      const fallback = preferLocal ? right : left;
+      return clone(selected === null && localAt === 0 && cloudAt === 0 ? fallback : selected);
+    }
+    return clone(preferLocal ? left : right);
+  };
+  const result = merge(local, cloud) || {};
+  result._firebaseLocalUpdatedAt = Math.max(localAt, cloudAt);
+  return result;
+}
+function applyLearnerProgress(progress) {
+  const active = window.getLearnerStateForFirebase?.();
+  if (!active || !progress) return;
+  Object.keys(active).forEach(key => delete active[key]);
+  Object.assign(active, JSON.parse(JSON.stringify(progress)));
+  const wasHydrating = window.firebaseProgressHydrating;
+  window.firebaseProgressHydrating = true;
+  try { window.save?.(); }
+  finally { window.firebaseProgressHydrating = wasHydrating; }
+  try { latestState = JSON.parse(JSON.stringify(active)); }
+  catch { latestState = active; }
+}
+function legacyProgressFromRecords(summary, records) {
+  const restored = { name: "", profileName: "", profile: {}, xp: 0, dayAwards: {}, dayBadges: [], assessments: {}, mockTests: {}, wheel: {}, finalAssessment: {}, _legacySummary: {}, _legacyDayRecords: {} };
+  if (summary) {
+    restored.name = String(summary.displayName || "");
+    restored.profileName = String(summary.displayName || "");
+    restored.profile = {
+      fullName: String(summary.displayName || ""),
+      linkedinUrl: String(summary.linkedinUrl || ""),
+      githubUrl: String(summary.githubUrl || ""),
+      domain: String(summary.domain || ""),
+      collegeName: String(summary.collegeName || "")
+    };
+    restored.xp = Number(summary.xp) || 0;
+    restored._legacySummary = {
+      xp: Number(summary.xp) || 0,
+      completedDays: Array.isArray(summary.completedDays) ? summary.completedDays.slice() : [],
+      badges: Array.isArray(summary.badges) ? summary.badges.slice() : [],
+      sectionsCompleted: Number(summary.sectionsCompleted) || 0,
+      assessmentAttempts: Number(summary.assessmentAttempts) || 0,
+      assessmentPasses: Number(summary.assessmentPasses) || 0,
+      mockTestsPassed: Number(summary.mockTestsPassed) || 0,
+      feedbackCount: Number(summary.feedbackCount) || 0,
+      attendanceCount: Number(summary.attendanceCount) || 0,
+      averageContentRating: Number(summary.averageContentRating) || 0,
+      averageDeliveryRating: Number(summary.averageDeliveryRating) || 0,
+      notesCount: Number(summary.notesCount) || 0,
+      assignmentCount: Number(summary.assignmentCount) || 0,
+      lastAttemptAt: summary.lastAttemptAt || null,
+      lastAttemptLabel: String(summary.lastAttemptLabel || "")
+    };
+    restored._legacySummary.completedDays.forEach(day => {
+      const dayNumber = Number(day);
+      if (Number.isInteger(dayNumber) && dayNumber >= 0 && dayNumber < 5) restored.dayAwards[dayNumber] = true;
+    });
+    restored.dayBadges = restored._legacySummary.badges.map(Number).filter(day => Number.isInteger(day) && day >= 0 && day < 5);
+  }
+  const toIso = value => {
+    const date = dateValue(value);
+    return date ? date.toISOString() : (typeof value === "string" ? value : null);
+  };
+  (records || []).forEach(record => {
+    const day = Number(record.day) - 1;
+    if (!Number.isInteger(day) || day < 0 || day > 4) return;
+    const legacy = {};
+    ["completedSections", "sectionsTotal", "preAttempts", "prePassed", "preBest", "preScores", "postAttempts", "postPassed", "postBest", "postScores", "mockAttempts", "mockPassed", "mockBest", "mockScores", "finalAttempts", "finalPassed", "finalBest", "finalScores", "wheelQuestions", "notesSaved", "assignmentSubmitted", "badgeEarned", "dayComplete"].forEach(key => {
+      if (record[key] !== undefined) legacy[key] = record[key];
+    });
+    ["preScores", "postScores", "mockScores", "finalScores"].forEach(key => {
+      if (Array.isArray(legacy[key])) legacy[key] = legacy[key].map(item => ({ ...item, at: toIso(item.at) }));
+    });
+    restored._legacyDayRecords[day + 1] = legacy;
+    if (record.dayComplete) restored.dayAwards[day] = true;
+    if (record.badgeEarned && !restored.dayBadges.includes(day)) restored.dayBadges.push(day);
+    const phases = restored.assessments[day] || {};
+    ["pre", "post"].forEach(phase => {
+      const scores = Array.isArray(legacy[phase + "Scores"]) ? legacy[phase + "Scores"] : [];
+      if (scores.length || legacy[phase + "Passed"]) {
+        phases[phase] = { attempts: scores.map(item => ({ score: Number(item.score) || 0, passed: !!item.passed, at: toIso(item.at), answered: Number(item.answered) || 0 })), passed: !!legacy[phase + "Passed"], active: null, xpEarned: 0 };
+      }
+    });
+    restored.assessments[day] = phases;
+    const mocks = Array.isArray(legacy.mockScores) ? legacy.mockScores : [];
+    if (mocks.length || legacy.mockPassed) restored.mockTests[day] = { attempts: mocks.map(item => ({ score: Number(item.score) || 0, passed: !!item.passed, at: toIso(item.at), answered: Number(item.answered) || 0 })), active: null, xpAwarded: false };
+    if (day === 4 && (Array.isArray(legacy.finalScores) || legacy.finalPassed)) restored.finalAssessment = { attempts: (legacy.finalScores || []).map(item => ({ score: Number(item.score) || 0, passed: !!item.passed, at: toIso(item.at), answered: Number(item.answered) || 0 })), passed: !!legacy.finalPassed, active: null, xpAwarded: false };
+  });
+  return restored;
+}
+async function hydrateProgressFromCloud(user) {
+  if (!db || !user?.uid || !window.firebaseGetDoc || !window.firebaseGetDocs) return;
+  try {
+    const progressRef = window.firebaseDoc(db, "users", user.uid, "progress", "current");
+    const summaryRef = window.firebaseDoc(db, "users", user.uid);
+    const daysRef = window.firebaseCollection(db, "users", user.uid, "days");
+    const [progressSnapshot, summarySnapshot, daysSnapshot] = await Promise.all([
+      window.firebaseGetDoc(progressRef),
+      window.firebaseGetDoc(summaryRef),
+      window.firebaseGetDocs(daysRef)
+    ]);
+    const legacy = legacyProgressFromRecords(summarySnapshot.exists() ? summarySnapshot.data() : null, daysSnapshot.docs.map(item => item.data()));
+    const storedState = progressSnapshot.exists() && progressSnapshot.data()?.state ? progressSnapshot.data().state : {};
+    const cloud = mergeLearnerProgress(legacy, storedState);
+    const local = window.getLearnerStateForFirebase?.() || {};
+    const merged = mergeLearnerProgress(local, cloud);
+    if (learnerProgressFingerprint(local) !== learnerProgressFingerprint(merged)) applyLearnerProgress(merged);
+    else {
+      const active = window.getLearnerStateForFirebase?.();
+      if (active) Object.assign(active, merged);
+    }
+  } catch (error) {
+    console.warn("Cloud progress could not be hydrated; retaining this device's local progress", error);
+    window.firebaseSetCloudStatus(readableError(error) + " · local progress is retained and sync will retry", true);
+  }
+}
 async function syncNow(login = false) {
   if (!currentUser || !latestState) return false;
   const user = currentUser;
   const snapshot = latestState;
   const run = syncInFlight.catch(() => false).then(async () => {
+    const progressRef = window.firebaseDoc(db, "users", user.uid, "progress", "current");
     const userDoc = window.firebaseDoc(db, "users", user.uid);
-    const summary = makeSummary(user, snapshot, login);
-    if (!login) {
-      delete summary.lastLoginAt;
-      delete summary.createdAt;
-    }
-    const writes = [window.firebaseSetDoc(userDoc, summary, { merge: true })];
     const pendingFingerprints = new Map();
-    for (let day = 0; day < 5; day++) {
-      const daily = makeDaySummary(snapshot, day);
-      const key = `${user.uid}:${day + 1}`;
-      const fingerprint = JSON.stringify(daily);
-      if (login || syncedDayFingerprints.get(key) !== fingerprint) {
-        const dayDoc = window.firebaseDoc(db, "users", user.uid, "days", `day-${day + 1}`);
-        writes.push(window.firebaseSetDoc(dayDoc, { uid: user.uid, ...daily, updatedAt: window.firebaseServerTimestamp() }, { merge: true }));
-        pendingFingerprints.set(key, fingerprint);
+    let mergedSnapshot;
+    await window.firebaseRunTransaction(db, async transaction => {
+      const storedProgress = await transaction.get(progressRef);
+      const cloudState = storedProgress.exists() ? storedProgress.data()?.state || {} : {};
+      mergedSnapshot = mergeLearnerProgress(snapshot, cloudState);
+      const progressChanged = !storedProgress.exists() || learnerProgressFingerprint(cloudState) !== learnerProgressFingerprint(mergedSnapshot);
+      if (progressChanged) transaction.set(progressRef, { state: mergedSnapshot, version: 1, updatedAt: window.firebaseServerTimestamp() }, { merge: true });
+      const summary = makeSummary(user, mergedSnapshot, login);
+      transaction.set(userDoc, summary, { merge: true });
+      for (let day = 0; day < 5; day++) {
+        const daily = makeDaySummary(mergedSnapshot, day);
+        const key = `${user.uid}:${day + 1}`;
+        const fingerprint = JSON.stringify(daily);
+        if (login || syncedDayFingerprints.get(key) !== fingerprint) {
+          const dayDoc = window.firebaseDoc(db, "users", user.uid, "days", `day-${day + 1}`);
+          transaction.set(dayDoc, { uid: user.uid, ...daily, updatedAt: window.firebaseServerTimestamp() }, { merge: true });
+          pendingFingerprints.set(key, fingerprint);
+        }
       }
-    }
-    await Promise.all(writes);
+    });
     if (currentUser?.uid === user.uid) {
       try {
+        const active = window.getLearnerStateForFirebase?.();
+        const currentState = active || latestState || snapshot;
+        const reconciled = mergeLearnerProgress(currentState, mergedSnapshot);
+        if (learnerProgressFingerprint(currentState) !== learnerProgressFingerprint(reconciled)) applyLearnerProgress(reconciled);
+        pendingFingerprints.forEach((fingerprint, key) => syncedDayFingerprints.set(key, fingerprint));
+        try { latestState = JSON.parse(JSON.stringify(reconciled)); } catch { latestState = reconciled; }
+        if (learnerProgressFingerprint(reconciled) !== learnerProgressFingerprint(mergedSnapshot)) queueProgress(reconciled);
         if (!window.firebaseIsAdmin) {
-          const board = makePublicLeaderboardEntry(user, snapshot);
+          const board = makePublicLeaderboardEntry(user, mergedSnapshot);
           await Promise.all(board.dailyXp.map((xp, day) => {
-          const boardRef = window.firebaseDoc(db, "publicLeaderboardDays", `day-${day + 1}`, "learners", user.uid);
+            const boardRef = window.firebaseDoc(db, "publicLeaderboardDays", `day-${day + 1}`, "learners", user.uid);
             return window.firebaseSetDoc(boardRef, { displayName: board.displayName, xp }, { merge: true });
           }));
         }
       } catch (leaderboardError) {
         console.warn("Daily leaderboard entry could not be updated", leaderboardError);
       }
-      pendingFingerprints.forEach((fingerprint, key) => syncedDayFingerprints.set(key, fingerprint));
       clearTimeout(syncRetryTimer);
       syncRetryTimer = 0;
       syncRetryDelay = 1000;
-      window.firebaseSetCloudStatus("Saved to Firebase · course record updated");
+      window.firebaseSetCloudStatus("Saved to Firebase · synced across devices");
     }
     return true;
   }).catch(error => {
@@ -630,14 +831,23 @@ async function syncNow(login = false) {
 }
 
 function queueProgress(state) {
-  if (!currentUser || !cloudReady || !state) return;
+  if (!state || window.firebaseProgressHydrating) return;
+  const stamp = Date.now();
+  state._firebaseLocalUpdatedAt = stamp;
+  try {
+    const raw = JSON.stringify(state);
+    localStorage.setItem("fieldGuideState", raw);
+    const owner = localStorage.getItem("fieldGuideOwnerUid");
+    if (owner) localStorage.setItem("fieldGuideState:" + owner, raw);
+  } catch (error) { console.warn("Local progress timestamp could not be saved", error); }
+  if (!currentUser || !cloudReady) return;
   try { latestState = JSON.parse(JSON.stringify(state)); } catch { latestState = state; }
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => { syncTimer = 0; syncNow(false); }, 650);
 }
 window.firebaseFlushLearnerProgress = async state => {
   if (!currentUser || !cloudReady || !state) return false;
-  try { latestState = JSON.parse(JSON.stringify(state)); } catch { latestState = state; }
+  queueProgress(state);
   clearTimeout(syncTimer);
   syncTimer = 0;
   return syncNow(false);
@@ -854,13 +1064,12 @@ function renderAdminDonut(title, subtitle, values, labels, colors, centerValue, 
 function buildAdminAnalytics(selectedDayValue, range) {
   const selectedDay = selectedDayValue === "all" ? null : Number(selectedDayValue);
   const start = adminAnalyticsStart(range);
-  const dayRecords = adminAllDayRecords.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "updatedAt", start));
+  const dayRecords = adminAllDayRecords.filter(record => !selectedDay || Number(record.day) === selectedDay);
   const attendance = adminAttendance.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "punchedInAt", start));
   const feedback = adminFeedback.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "submittedAt", start));
   const signIns = adminUsers.filter(user => adminAnalyticsInRange(user, "lastLoginAt", start));
   const scores = collectAdminScoreAttempts(adminAllDayRecords, selectedDay, start);
-  const participantIds = new Set(dayRecords.concat(attendance, feedback).map(record => record.uid).filter(Boolean));
-  const participants = selectedDay ? adminUsers.filter(user => participantIds.has(user.id) || (user.completedDays || []).includes(selectedDay - 1)) : adminUsers;
+  const participants = adminUsers;
   const scoreAverage = scores.length ? scores.reduce((sum, item) => sum + item.percent, 0) / scores.length : null;
   const passCount = scores.filter(item => item.passed).length;
   const passRate = scores.length ? Math.round(passCount / scores.length * 100) : null;
@@ -868,21 +1077,25 @@ function buildAdminAnalytics(selectedDayValue, range) {
   const feedbackAverage = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null;
   const averageXP = participants.length ? Math.round(participants.reduce((sum, user) => sum + (Number(user.xp) || 0), 0) / participants.length) : 0;
   const completeCount = selectedDay
-    ? participants.filter(user => (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && record.dayComplete)).length
-    : adminUsers.filter(user => (user.completedDays || []).length >= 5).length;
-  const startedIds = new Set(dayRecords.filter(record => Number(record.completedSections) > 0 || Number(record.preAttempts) > 0 || Number(record.postAttempts) > 0 || Number(record.mockAttempts) > 0 || Number(record.wheelQuestions) > 0 || record.notesSaved || record.assignmentSubmitted).map(record => record.uid));
+    ? participants.filter(user => (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && Number(record.day) === selectedDay && record.dayComplete)).length
+    : participants.filter(user => (user.completedDays || []).length >= 5 || dayRecords.filter(record => record.uid === user.id).some(record => record.dayComplete)).length;
+  const allDayActivity = adminAttendance.filter(record => !selectedDay || Number(record.day) === selectedDay)
+    .concat(adminFeedback.filter(record => !selectedDay || Number(record.day) === selectedDay));
+  const startedIds = new Set(dayRecords.filter(record => (!selectedDay || Number(record.day) === selectedDay) && (Number(record.completedSections) > 0 || Number(record.preAttempts) > 0 || Number(record.postAttempts) > 0 || Number(record.mockAttempts) > 0 || Number(record.wheelQuestions) > 0 || record.notesSaved || record.assignmentSubmitted)).map(record => record.uid).concat(allDayActivity.map(record => record.uid).filter(Boolean)));
   const startedCount = participants.filter(user => {
     const complete = selectedDay
-      ? (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && record.dayComplete)
-      : (user.completedDays || []).length >= 5;
-    return !complete && (startedIds.has(user.id) || Number(user.sectionsCompleted) > 0 || (user.completedDays || []).length > 0);
+      ? (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && Number(record.day) === selectedDay && record.dayComplete)
+      : (user.completedDays || []).length >= 5 || dayRecords.filter(record => record.uid === user.id).some(record => record.dayComplete);
+    const hasDayActivity = startedIds.has(user.id);
+    const hasCourseActivity = !selectedDay && (Number(user.sectionsCompleted) > 0 || (user.completedDays || []).length > 0);
+    return !complete && (hasDayActivity || hasCourseActivity);
   }).length;
   const notStartedCount = Math.max(0, participants.length - completeCount - startedCount);
   const kpis = [
     ["Registered learners", adminUsers.length, "All Google-authenticated profiles"],
     ["Active · 24 hours", adminUsers.filter(user => (dateValue(user.lastActivityAt)?.getTime() || 0) >= Date.now() - 86400000).length, "Recent saved activity"],
     [selectedDay ? "Day " + selectedDay + " completed" : "Five-day completions", completeCount, selectedDay ? "Learners completing this day" : "Learners completing all five days"],
-    ["Average learner XP", averageXP, selectedDay ? "Learners with activity on this day" : "Across the cohort"],
+    ["Average learner XP", averageXP, "Across registered learners"],
     ["Learners signed in", signIns.length, "Latest sign-in in selected period"],
     ["Attendance sessions", attendance.length, "Filtered by day and date range"],
     ["Assessment attempts", scores.length, selectedDay ? "Day " + selectedDay + " attempts" : "Across all five days"],
@@ -1427,6 +1640,26 @@ window.firebasePunchAttendance = async (day, action) => {
   }
 };
 
+function startLearnerProgressListener(user) {
+  myProgressUnsubscribe?.();
+  const progressRef = window.firebaseDoc(db, "users", user.uid, "progress", "current");
+  myProgressUnsubscribe = window.firebaseOnSnapshot(progressRef, snapshot => {
+    if (!snapshot.exists()) return;
+    const cloudState = snapshot.data()?.state;
+    if (!cloudState) return;
+    const localState = window.getLearnerStateForFirebase?.() || {};
+    const merged = mergeLearnerProgress(localState, cloudState);
+    if (learnerProgressFingerprint(localState) !== learnerProgressFingerprint(merged)) {
+      applyLearnerProgress(merged);
+      if (learnerProgressFingerprint(merged) !== learnerProgressFingerprint(cloudState)) queueProgress(merged);
+      window.firebaseSetCloudStatus("Progress updated from your other signed-in device.");
+    }
+  }, error => {
+    console.warn("Live learner progress listener failed", error);
+    window.firebaseSetCloudStatus(readableError(error) + " · local progress is safe and will retry", true);
+  });
+}
+
 function startLearnerActivityListeners(user) {
   myFeedbackUnsubscribe?.();
   myAttendanceUnsubscribe?.();
@@ -1434,12 +1667,16 @@ function startLearnerActivityListeners(user) {
   myFeedback = {};
   myAttendance = {};
   myNotifications = [];
-  myFeedbackUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "feedback"), snapshot => {
+  myFeedbackServerReady = false;
+  myAttendanceServerReady = false;
+  myFeedbackUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "feedback"), { includeMetadataChanges: true }, snapshot => {
+    myFeedbackServerReady = !snapshot.metadata.fromCache;
     myFeedback = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyFeedback?.(day);
     if (latestState) queueProgress(latestState);
   }, error => window.firebaseSetCloudStatus(readableError(error), true));
-  myAttendanceUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "attendance"), snapshot => {
+  myAttendanceUnsubscribe = window.firebaseOnSnapshot(window.firebaseCollection(db, "users", user.uid, "attendance"), { includeMetadataChanges: true }, snapshot => {
+    myAttendanceServerReady = !snapshot.metadata.fromCache;
     myAttendance = Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]));
     for (let day = 0; day < 5; day++) window.refreshDailyAttendance?.(day);
     autoPunchOutExpiredAttendance(user.uid);
@@ -1546,14 +1783,23 @@ try {
     if (!user) {
       clearTimeout(idleLogoutTimer);
       clearInterval(attendanceAutoCloseTimer);
+      clearTimeout(syncTimer);
+      clearTimeout(syncRetryTimer);
       idleLogoutTimer = 0;
       attendanceAutoCloseTimer = 0;
+      syncTimer = 0;
+      syncRetryTimer = 0;
+      syncRetryDelay = 1000;
+      myFeedbackServerReady = false;
+      myAttendanceServerReady = false;
       myFeedbackUnsubscribe?.();
       myAttendanceUnsubscribe?.();
       myNotificationsUnsubscribe?.();
+      myProgressUnsubscribe?.();
       myFeedbackUnsubscribe = null;
       myAttendanceUnsubscribe = null;
       myNotificationsUnsubscribe = null;
+      myProgressUnsubscribe = null;
       myFeedback = {};
       myAttendance = {};
       myNotifications = [];
@@ -1567,9 +1813,16 @@ try {
       const token = await authSdk.getIdTokenResult(user);
       const isAdmin = token.claims.admin === true || (token.claims.email_verified === true && String(token.claims.email || user.email || "").toLowerCase() === "kapilnarula27july@gmail.com");
       setAdminAccess(isAdmin);
-      window.activateFirebaseLearner?.(user, isAdmin);
-      await hydrateProfileFromCloud(user);
+      window.firebaseProgressHydrating = true;
+      try {
+        window.activateFirebaseLearner?.(user, isAdmin);
+        await hydrateProgressFromCloud(user);
+        await hydrateProfileFromCloud(user);
+      } finally {
+        window.firebaseProgressHydrating = false;
+      }
       startLearnerActivityListeners(user);
+      startLearnerProgressListener(user);
       latestState = window.getLearnerStateForFirebase?.() || {};
       loadGeneratedNotifications(user);
       addDailyLearnerNotifications(user, latestState);
