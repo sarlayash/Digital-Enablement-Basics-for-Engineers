@@ -560,11 +560,9 @@
   };
   window.closeCertificate=function(){document.getElementById("certificateModal").classList.remove("show");};
   function downloadCanvasPng(canvas,base) {
-    canvas.toBlob(function(blob){
-      if(blob){downloadBlob(blob,base+".png");return;}
-      var binary=atob(canvas.toDataURL("image/png").split(",")[1]),bytes=Uint8Array.from(binary,function(ch){return ch.charCodeAt(0);});
-      downloadBlob(new Blob([bytes],{type:"image/png"}),base+".png");
-    },"image/png");
+    function fallback(){var binary=atob(canvas.toDataURL("image/png").split(",")[1]),bytes=Uint8Array.from(binary,function(ch){return ch.charCodeAt(0);});downloadBlob(new Blob([bytes],{type:"image/png"}),base+".png");}
+    if(typeof canvas.toBlob!=="function"){fallback();return;}
+    canvas.toBlob(function(blob){if(blob)downloadBlob(blob,base+".png");else fallback();},"image/png");
   }
   window.downloadBadge=async function(day,format) {
     if(!Number.isInteger(day)||day<0||day>=lessons.length){toast("Choose a valid daily badge.");return;}
@@ -573,12 +571,13 @@
     try{var canvas=await drawBadge(day),base="Day-"+(day+1)+"-Badge";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,true);}
     catch(error){toast(error&&error.message?error.message:"Badge export failed. Please try again.");}
   };
-  window.downloadCertificate=async function(day,format) { if(format!=="png"&&format!=="pdf"){toast("Choose PNG or PDF for your certificate download.");return;}
+  window.downloadCertificate=async function(day,format) {
+    if(format!=="png"&&format!=="pdf"){toast("Choose PNG or PDF for your certificate download.");return;}
+    if(day!==-1&&(!Number.isInteger(day)||day<0||day>=lessons.length)){toast("Choose a valid certificate.");return;}
     if(day===-1&&!allPostPassed()){toast(allDaysComplete()?"Pass the five-day final assessment to unlock the course certificate.":"Complete all five days and pass the final assessment to unlock the course certificate.");return;}
     if(day>=0&&!fullDay(day)){toast("Complete all 8 daily sections to unlock this certificate.");return;}
-    var canvas=await drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";
-    if(format==="png"){downloadCanvasPng(canvas,base);return;}
-    canvasPdf(canvas,base,false);
+    try{var canvas=await drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,false);}
+    catch(error){toast(error&&error.message?error.message:"Certificate export failed. Please try again.");}
   };
   function downloadBlob(blob,name) {
     var url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);
