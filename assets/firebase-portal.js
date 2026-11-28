@@ -25,6 +25,8 @@ let adminDetailFeedback = [];
 let adminDetailAttendance = [];
 let latestState = null;
 let syncTimer = 0;
+let syncRetryTimer = 0;
+let syncRetryDelay = 1000;
 let idleLogoutTimer = 0;
 let attendanceAutoCloseTimer = 0;
 const autoPunchOutInFlight = new Set();
@@ -397,10 +399,10 @@ function makeDaySummary(state, day) {
 }
 
 async function syncNow(login = false) {
-  if (!currentUser || !latestState) return;
+  if (!currentUser || !latestState) return false;
   const user = currentUser;
   const snapshot = latestState;
-  syncInFlight = syncInFlight.then(async () => {
+  const run = syncInFlight.catch(() => false).then(async () => {
     const userDoc = window.firebaseDoc(db, "users", user.uid);
     const summary = makeSummary(user, snapshot, login);
     if (!login) {
@@ -408,6 +410,7 @@ async function syncNow(login = false) {
       delete summary.createdAt;
     }
     const writes = [window.firebaseSetDoc(userDoc, summary, { merge: true })];
+    const pendingFingerprints = new Map();
     for (let day = 0; day < 5; day++) {
       const daily = makeDaySummary(snapshot, day);
       const key = `${user.uid}:${day + 1}`;
@@ -415,24 +418,47 @@ async function syncNow(login = false) {
       if (login || syncedDayFingerprints.get(key) !== fingerprint) {
         const dayDoc = window.firebaseDoc(db, "users", user.uid, "days", `day-${day + 1}`);
         writes.push(window.firebaseSetDoc(dayDoc, { uid: user.uid, ...daily, updatedAt: window.firebaseServerTimestamp() }, { merge: true }));
-        syncedDayFingerprints.set(key, fingerprint);
+        pendingFingerprints.set(key, fingerprint);
       }
     }
     await Promise.all(writes);
-    if (currentUser?.uid === user.uid) window.firebaseSetCloudStatus("Synced to the course dashboard");
+    if (currentUser?.uid === user.uid) {
+      pendingFingerprints.forEach((fingerprint, key) => syncedDayFingerprints.set(key, fingerprint));
+      clearTimeout(syncRetryTimer);
+      syncRetryTimer = 0;
+      syncRetryDelay = 1000;
+      window.firebaseSetCloudStatus("Saved to Firebase · course record updated");
+    }
+    return true;
   }).catch(error => {
     console.error("Learner report sync failed", error);
-    window.firebaseSetCloudStatus(readableError(error), true);
+    window.firebaseSetCloudStatus(readableError(error) + " · retrying automatically", true);
+    if (currentUser?.uid === user.uid && latestState && !syncRetryTimer) {
+      syncRetryTimer = setTimeout(() => {
+        syncRetryTimer = 0;
+        syncNow(false);
+      }, syncRetryDelay);
+      syncRetryDelay = Math.min(syncRetryDelay * 2, 30000);
+    }
+    return false;
   });
-  return syncInFlight;
+  syncInFlight = run;
+  return run;
 }
 
 function queueProgress(state) {
   if (!currentUser || !cloudReady || !state) return;
   try { latestState = JSON.parse(JSON.stringify(state)); } catch { latestState = state; }
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => syncNow(false), 650);
+  syncTimer = setTimeout(() => { syncTimer = 0; syncNow(false); }, 650);
 }
+window.firebaseFlushLearnerProgress = async state => {
+  if (!currentUser || !cloudReady || !state) return false;
+  try { latestState = JSON.parse(JSON.stringify(state)); } catch { latestState = state; }
+  clearTimeout(syncTimer);
+  syncTimer = 0;
+  return syncNow(false);
+};
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
