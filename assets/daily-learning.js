@@ -609,7 +609,7 @@
     if(!Number.isInteger(day)||day<0||day>=lessons.length){toast("Choose a valid daily badge.");return;}
     if(!fullDay(day)){toast("Complete all 8 sections to unlock this badge.");return;}
     if(format!=="png"&&format!=="pdf"){toast("Choose PNG or PDF for your badge download.");return;}
-    try{var canvas=await drawBadge(day),base="Day-"+(day+1)+"-Badge";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,true);emitCourseNotice({kind:"Award",title:"Badge downloaded",message:"Your Day "+(day+1)+" badge is ready to share. Thank you for completing today’s learning.",day:day,referenceTitle:courseReferences[day].title,referenceUrl:courseReferences[day].url});}
+    try{var canvas=await drawBadge(day),base="Day-"+(day+1)+"-Badge";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,true);state.badgeDownloads=Array.from(new Set((state.badgeDownloads||[]).concat(day)));persist();emitCourseNotice({kind:"Award",title:"Badge downloaded",message:"Your Day "+(day+1)+" badge is ready to share. Thank you for completing today’s learning.",day:day,referenceTitle:courseReferences[day].title,referenceUrl:courseReferences[day].url});}
     catch(error){toast(error&&error.message?error.message:"Badge export failed. Please try again.");}
   };
   window.downloadCertificate=async function(day,format) {
@@ -617,7 +617,7 @@
     if(day!==-1&&(!Number.isInteger(day)||day<0||day>=lessons.length)){toast("Choose a valid certificate.");return;}
     if(day===-1&&!allPostPassed()){toast(allDaysComplete()?"Pass the five-day final assessment to unlock the course certificate.":"Complete all five days and pass the final assessment to unlock the course certificate.");return;}
     if(day>=0&&!fullDay(day)){toast("Complete all 8 daily sections to unlock this certificate.");return;}
-    try{var canvas=await drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,false);emitCourseNotice({kind:"Award",title:"Certificate downloaded",message:"Your "+(day===-1?"course":"Day "+(day+1))+" certificate is ready to share. Thank you for learning with us.",day:day<0?4:day,referenceTitle:courseReferences[day<0?4:day].title,referenceUrl:courseReferences[day<0?4:day].url});}
+    try{var canvas=await drawCertificate(day),base=day===-1?"Digital-Enablement-Certificate":"Day-"+(day+1)+"-Certificate";if(format==="png")downloadCanvasPng(canvas,base);else canvasPdf(canvas,base,false);state.certificateDownloads=Array.from(new Set((state.certificateDownloads||[]).concat(day===-1?"course":day)));persist();emitCourseNotice({kind:"Award",title:"Certificate downloaded",message:"Your "+(day===-1?"course":"Day "+(day+1))+" certificate is ready to share. Thank you for learning with us.",day:day<0?4:day,referenceTitle:courseReferences[day<0?4:day].title,referenceUrl:courseReferences[day<0?4:day].url});}
     catch(error){toast(error&&error.message?error.message:"Certificate export failed. Please try again.");}
   };
   function downloadBlob(blob,name) {
