@@ -25,7 +25,7 @@
    const valid=digest===expected&&id==="DEB-"+String(base.awardType||"AWARD").replace(/[^A-Z0-9]+/gi,"-").toUpperCase()+"-"+digest.slice(0,16).toUpperCase();
    if(!valid){fail("Checksum mismatch. The QR details may have been changed or damaged.");return;}
    status.className="status ok";status.textContent="QR checksum verified · credential details match the encoded record";
-   const fields=[["Credential ID",id],["Award",base.awardTitle],["Learner",base.learnerName],["Issued",base.issuedOn],["Course",base.course],["Assessment score",base.scoreText||"—"],["XP recorded",base.xp+" XP"],["Issuer shown",base.issuer]];
+   const fields=[["Credential ID",id],["Award",base.awardTitle],["Learner",base.learnerName],["Issued",base.issuedOn],["Day",base.day||"—"],["Course",base.course],["Assessment score",base.scoreText||"—"],["XP recorded",base.xp+" XP"],["Issuer shown",base.issuer]];
    root.innerHTML=fields.map(([label,value])=>'<div class="field"><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div>').join("");root.hidden=false;
   }catch(error){fail("Credential data could not be read. Scan the QR code again.");}
  }
