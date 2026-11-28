@@ -197,6 +197,7 @@
     return state.assessments[day][name];
   }
   function windowStatus(name) {
+    if (window.firebaseIsAdmin===true) return {open:true,label:"Administrator access · no schedule limits"};
     if (PREVIEW) return {open:true,label:"Preview mode · time window bypassed"};
     var m=window.portalIndiaNow?window.portalIndiaNow().minutes:(new Date().getHours()*60+new Date().getMinutes());
     var start=8*60,end=23*60;
@@ -323,7 +324,7 @@
     "</style>");
   document.body.insertAdjacentHTML("beforeend",'<div class="assess-overlay" id="assessmentModal" role="dialog" aria-modal="true"></div><div class="certificate-overlay" id="certificateModal" role="dialog" aria-modal="true"></div>');
 
-  function portalAllowed(day) { var preview=typeof PORTAL_PREVIEW!=="undefined"&&PORTAL_PREVIEW; var m=window.portalIndiaNow?window.portalIndiaNow().minutes:(new Date().getHours()*60+new Date().getMinutes()); return (preview||(m>=480&&m<1380))&&(typeof access!=="function"||access(day).status!=="locked"); } function assessmentWindowOpen(name) { return windowStatus(name).open; }
+  function portalAllowed(day) { if(window.firebaseIsAdmin===true)return true; var preview=typeof PORTAL_PREVIEW!=="undefined"&&PORTAL_PREVIEW; var m=window.portalIndiaNow?window.portalIndiaNow().minutes:(new Date().getHours()*60+new Date().getMinutes()); return (preview||(m>=480&&m<1380))&&(typeof access!=="function"||access(day).status!=="locked"); } function assessmentWindowOpen(name) { return windowStatus(name).open; }
   function startAttempt(day,name) {
     var s=phase(day,name), ids=shuffle(bank(day).map(function(_,i){return i;}));
     s.active={ids:ids,at:0,answers:{},hint:false,started:new Date().toISOString()};
