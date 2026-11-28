@@ -19,6 +19,13 @@ let adminRosterScores = new Map();
 let adminRosterScoreLoad = 0;
 let adminFeedback = [];
 let adminAttendance = [];
+let adminAllDayRecords = [];
+let adminAnalyticsDay = "all";
+let adminAnalyticsRange = "30";
+let adminSearchTerm = "";
+let adminAnalyticsReady = { users: false, days: false, feedback: false, attendance: false };
+let adminAnalyticsCache = { users: false, days: false, feedback: false, attendance: false };
+let adminAnalyticsErrors = {};
 let selectedAdminUid = null;
 let adminDayRecords = [];
 let adminDetailFeedback = [];
@@ -143,6 +150,47 @@ function installPortalControls() {
     .firebase-users{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px}.firebase-users-toolbar{display:flex;align-items:center;gap:9px;margin:14px 0}.firebase-users-toolbar input{flex:1;min-width:120px;border:1px solid #dce1ea;border-radius:9px;padding:10px;font-size:11px}.firebase-users-toolbar button{white-space:nowrap}.firebase-table-wrap{overflow:auto;border:1px solid #e8ebf1;border-radius:11px}.firebase-table{width:100%;border-collapse:collapse;min-width:980px;text-align:left}.firebase-table th{position:sticky;top:0;background:#f7f8fb;color:#6b758a;font:10px 'DM Mono';text-transform:uppercase;letter-spacing:.3px;padding:11px 10px;border-bottom:1px solid #e6e9ef}.firebase-table td{padding:11px 10px;border-bottom:1px solid #edf0f4;color:#35415b;font-size:10px;vertical-align:top}.firebase-table tr:last-child td{border-bottom:0}.firebase-table .user-cell b,.firebase-table .user-cell span{display:block;max-width:180px;overflow-wrap:anywhere}.firebase-table .user-cell span{font-size:9px;color:#7c8699;margin-top:4px}.admin-detail-button{margin-top:8px!important;font-size:9px!important;padding:7px 8px!important}.firebase-detail{margin-top:16px;padding:19px;background:linear-gradient(145deg,#f8fbff,#fff);border:1px solid #d7e1f2;border-radius:16px}.firebase-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}.firebase-detail-head h2{margin:5px 0;font:800 20px Manrope;color:#213253}.firebase-detail-head p{margin:0;color:#69758b;font-size:11px}.firebase-detail-scroll{display:grid;gap:12px}.firebase-detail-scroll h3{font:800 13px Manrope;color:#2b3b5c;margin:5px 0 -3px}.firebase-error{padding:10px 12px;background:#fff1ef;color:#9b382e;border-radius:9px;font-size:11px}.firebase-empty{padding:28px;text-align:center;color:var(--muted);font-size:12px}.firebase-sync-note{font-size:10px;color:var(--muted);margin-top:10px}
     .firebase-notification-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.firebase-notification-actions a{font-size:11px;font-weight:700;color:#3c59b7;text-decoration:none}.notification-open-day{padding:7px 10px!important;font-size:10px!important}.notification-nav-count{float:right;min-width:18px;padding:2px 5px;border-radius:99px;background:#e8efff;color:#3d58be;font:9px 'DM Mono';text-align:center}.firebase-profile,.firebase-notifications{padding:26px 0 50px}.firebase-profile[hidden],.firebase-notifications[hidden]{display:none}.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:17px}.firebase-profile-head h1,.firebase-notifications-head h1{font:800 26px Manrope;margin:5px 0;color:#203052}.firebase-profile-head p,.firebase-notifications-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}.firebase-profile-card{max-width:850px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:16px}.firebase-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.firebase-profile-field{display:grid;gap:6px}.firebase-profile-field label{font-size:11px;font-weight:700;color:#43516d}.firebase-profile-field input{width:100%;border:1px solid #dce2ec;border-radius:9px;padding:10px 11px;color:#33415b;font-size:12px}.firebase-profile-field small{font-size:10px;color:#758096;line-height:1.45}.firebase-profile-field.wide{grid-column:1/-1}.firebase-profile-card .action{margin-top:17px}.firebase-profile-sync{margin:12px 0 0;color:#55708d;font-size:10px}.firebase-notification-list{display:grid;gap:11px;max-width:900px}.firebase-notification{padding:16px;border:1px solid #dfe5ee;border-radius:14px;background:#fff}.firebase-notification-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.firebase-notification h3{margin:0;font:800 14px Manrope;color:#253553}.firebase-notification p{margin:9px 0 0;color:#5f6b82;font-size:12px;line-height:1.65;white-space:pre-wrap}.firebase-notification time{font:10px 'DM Mono';color:#768197;white-space:nowrap}.firebase-comms{margin:0 0 16px;padding:19px;border:1px solid #d7e1f2;border-radius:16px;background:linear-gradient(145deg,#f6f9ff,#fff)}.firebase-comms h2{margin:0;font:800 16px Manrope;color:#243454}.firebase-comms p{font-size:11px;line-height:1.55;color:#67738a;margin:6px 0 0}.firebase-comms-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.firebase-comms-grid label{display:grid;gap:6px;color:#49566f;font-size:10px;font-weight:700}.firebase-comms-grid input,.firebase-comms-grid select,.firebase-comms-grid textarea{width:100%;border:1px solid #dce2ed;border-radius:9px;padding:10px;background:#fff;color:#35425d;font-size:11px}.firebase-comms-grid textarea{min-height:94px;resize:vertical}.firebase-comms-grid .wide{grid-column:1/-1}.firebase-comms-check{display:flex!important;grid-template-columns:auto 1fr;align-items:center;gap:8px!important;font-size:11px!important}.firebase-comms-check input{width:auto}.firebase-comms-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:13px}.firebase-comms-actions small{color:#69768d;font-size:10px;line-height:1.45}
     @media(max-width:800px){.firebase-admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.firebase-admin-head,.firebase-detail-head,.firebase-profile-head,.firebase-notifications-head,.firebase-comms-head{flex-direction:column}.firebase-users{padding:13px}.firebase-users-toolbar{flex-wrap:wrap}.firebase-users-toolbar input{flex-basis:100%}.firebase-profile-grid,.firebase-comms-grid{grid-template-columns:1fr}.firebase-profile-field.wide,.firebase-comms-grid .wide{grid-column:auto}.firebase-comms-actions{align-items:flex-start;flex-direction:column}}
+
+    .firebase-admin-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .firebase-admin-kpi span{display:block;margin-top:6px;color:#78839a;font-size:10px;line-height:1.45}
+    .firebase-powerbi{margin:0 0 16px;padding:19px;background:linear-gradient(145deg,#f7f9ff,#fff 48%);border:1px solid #dfe5f0;border-radius:18px;box-shadow:0 10px 28px #15254a08}
+    .firebase-powerbi-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+    .firebase-powerbi-head h2{font:800 17px Manrope;margin:2px 0;color:#203052}
+    .firebase-powerbi-head p{margin:5px 0 0;color:#718097;font-size:11px;line-height:1.5}
+    .firebase-analytics-filters{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap}
+    .firebase-analytics-filters label{display:grid;gap:5px;color:#657189;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.55px}
+    .firebase-analytics-filters select{min-width:130px;border:1px solid #dce3ee;border-radius:9px;background:#fff;color:#30405e;padding:9px 11px;font:600 11px Manrope}
+    .firebase-analytics-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+    .firebase-chart-card{grid-column:span 3;min-width:0;padding:15px;background:#fff;border:1px solid #e5eaf2;border-radius:14px;box-shadow:0 5px 16px #16274706}
+    .firebase-chart-card--score{grid-column:span 7}
+    .firebase-chart-card--activity{grid-column:span 5}
+    .firebase-chart-card--donut{grid-column:span 3}
+    .firebase-chart-title{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:7px}
+    .firebase-chart-title h3{margin:0;color:#253653;font:800 12px Manrope}
+    .firebase-chart-title p{margin:4px 0 0;color:#79859a;font-size:9px;line-height:1.45}
+    .firebase-chart-tag{flex:none;border-radius:99px;padding:5px 7px;background:#f1f4fa;color:#697890;font:9px 'DM Mono'}
+    .firebase-chart-svg{display:block;width:100%;height:auto;overflow:visible}
+    .firebase-chart-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    .firebase-chart-legend span{display:inline-flex;align-items:center;gap:5px;color:#64718a;font-size:9px}
+    .firebase-chart-legend i{width:8px;height:8px;border-radius:3px;display:inline-block}
+    .firebase-chart-empty{display:grid;place-items:center;min-height:150px;padding:15px;border:1px dashed #dce3ee;border-radius:10px;color:#8490a4;text-align:center;font-size:11px;line-height:1.5}
+    .firebase-donut-layout{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:12px;min-height:150px}
+    .firebase-donut{position:relative;width:112px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;margin:auto}
+    .firebase-donut:before{content:'';position:absolute;inset:18px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #edf0f5}
+    .firebase-donut-center{position:relative;z-index:1;text-align:center}
+    .firebase-donut-center b{display:block;color:#243452;font:800 19px Manrope}
+    .firebase-donut-center small{display:block;margin-top:2px;color:#7b879d;font-size:8px}
+    .firebase-donut-legend{display:grid;gap:7px}
+    .firebase-donut-legend span{display:grid;grid-template-columns:9px 1fr auto;gap:6px;align-items:center;color:#69758b;font-size:9px}
+    .firebase-donut-legend i{width:8px;height:8px;border-radius:50%}
+    .firebase-donut-legend b{color:#334360;font:700 9px 'DM Mono'}
+    .firebase-analytics-warning{margin:12px 0 0;padding:9px 11px;border-radius:9px;background:#fff5e8;color:#865316;font-size:10px;line-height:1.5}
+    .firebase-print-dashboard{white-space:nowrap}
+    @media(max-width:1100px){.firebase-admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.firebase-chart-card--donut{grid-column:span 6}}
+    @media(max-width:800px){.firebase-admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.firebase-powerbi{padding:14px}.firebase-powerbi-head{flex-direction:column}.firebase-chart-card--score,.firebase-chart-card--activity{grid-column:span 12}.firebase-chart-card--donut{grid-column:span 6}.firebase-donut-layout{grid-template-columns:100px minmax(0,1fr)}.firebase-donut{width:96px}}
+    @media(max-width:560px){.firebase-chart-card--donut{grid-column:span 12}.firebase-analytics-filters{width:100%}.firebase-analytics-filters label{flex:1;min-width:135px}.firebase-analytics-filters select{width:100%}.firebase-donut-layout{grid-template-columns:112px minmax(0,1fr)}.firebase-donut{width:104px}}
+    @media print{.firebase-admin-head,.firebase-analytics-filters,.firebase-users-toolbar,.admin-detail-button,.firebase-comms,.firebase-notification-actions,#navAdmin{display:none!important}.firebase-admin{padding:0!important}.firebase-chart-card,.firebase-powerbi,.firebase-analysis,.firebase-users{break-inside:avoid;box-shadow:none!important}}
+
   </style>`);
 
   window.showFirebaseAdminDashboard = function () {
@@ -666,9 +714,249 @@ function bindEmailTemplateControls() {
   });
 }
 
+
+function adminAnalyticsStart(range) {
+  if (range === "all") return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - Math.max(0, Number(range) - 1));
+  return start;
+}
+function adminAnalyticsDate(record, key) {
+  if (["lastLoginAt", "submittedAt", "punchedInAt"].includes(key)) return dateValue(record?.[key]);
+  return dateValue(record?.[key]) || dateValue(record?.updatedAt) ||
+    (record?.sessionDate ? dateValue(String(record.sessionDate) + "T12:00:00") : null);
+}
+function adminAnalyticsInRange(record, key, start) {
+  if (!start) return true;
+  const date = adminAnalyticsDate(record, key);
+  return !!date && date >= start;
+}
+function collectAdminScoreAttempts(records, selectedDay, start) {
+  const phases = [{ key: "pre", scale: 50 }, { key: "post", scale: 50 }, { key: "mock", scale: 10 }, { key: "final", scale: 25 }];
+  const output = [];
+  records.forEach(record => {
+    const day = Number(record.day) || 0;
+    if (selectedDay && day !== selectedDay) return;
+    phases.forEach(phase => {
+      const scoreKey = phase.key + "Scores";
+      let attempts = Array.isArray(record[scoreKey]) ? record[scoreKey] : [];
+      if (!attempts.length && (Number(record[phase.key + "Attempts"]) || 0) > 0 && record[phase.key + "Best"] != null) {
+        attempts = [{ score: record[phase.key + "Best"], passed: !!record[phase.key + "Passed"], at: record.updatedAt }];
+      }
+      attempts.forEach(attempt => {
+        const at = dateValue(attempt.at) || dateValue(record.updatedAt);
+        if (start && (!at || at < start)) return;
+        const score = Math.max(0, Math.min(phase.scale, Number(attempt.score) || 0));
+        output.push({ uid: record.uid || "", day, phase: phase.key, score, scale: phase.scale, percent: score / phase.scale * 100, passed: !!attempt.passed, at });
+      });
+    });
+  });
+  return output;
+}
+function renderAdminScoreSvg(scores, selectedDay) {
+  const days = selectedDay ? [selectedDay] : [1, 2, 3, 4, 5];
+  const phases = [
+    { key: "pre", label: "Pre", color: "#526fe4" },
+    { key: "post", label: "Post", color: "#1ca58b" },
+    { key: "mock", label: "Mock", color: "#e4a43b" },
+    { key: "final", label: "Final", color: "#8b69d5" }
+  ];
+  const width = 700, height = 220, left = 42, top = 16, plotW = 640, plotH = 158;
+  const grid = [0, 25, 50, 75, 100].map(value => {
+    const y = top + plotH - value / 100 * plotH;
+    return '<line x1="' + left + '" y1="' + y + '" x2="' + (left + plotW) + '" y2="' + y + '" stroke="#edf0f5"/><text x="' + (left - 8) + '" y="' + (y + 3) + '" text-anchor="end" fill="#8490a3" font-size="9">' + value + '%</text>';
+  }).join("");
+  const groupW = plotW / days.length;
+  let bars = "";
+  days.forEach((day, dayIndex) => {
+    const groupStart = left + dayIndex * groupW;
+    const barW = Math.min(19, groupW / 7);
+    const totalW = phases.length * barW + (phases.length - 1) * 5;
+    const startX = groupStart + (groupW - totalW) / 2;
+    phases.forEach((phase, phaseIndex) => {
+      const values = scores.filter(item => item.day === day && item.phase === phase.key);
+      if (!values.length) return;
+      const average = values.reduce((sum, item) => sum + item.percent, 0) / values.length;
+      const barH = Math.max(2, average / 100 * plotH);
+      const x = startX + phaseIndex * (barW + 5);
+      const y = top + plotH - barH;
+      bars += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="4" fill="' + phase.color + '" opacity=".92"><title>Day ' + day + ' ' + phase.label + ': ' + average.toFixed(0) + '% average · ' + values.length + ' attempts</title></rect>';
+    });
+    bars += '<text x="' + (groupStart + groupW / 2) + '" y="' + (top + plotH + 20) + '" text-anchor="middle" fill="#596780" font-size="10">Day ' + day + '</text>';
+  });
+  return '<svg class="firebase-chart-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Average pre, post, mock, and final assessment score percentages by day"><title>Assessment score trend by course day</title>' + grid + bars + '</svg>';
+}
+function makeAdminActivityBuckets(range) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (range === "all") {
+    const first = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+    return Array.from({ length: 12 }, (_, index) => {
+      const start = new Date(first.getFullYear(), first.getMonth() + index, 1);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+      return { start, end, label: start.toLocaleDateString(undefined, { month: "short" }) };
+    });
+  }
+  const config = range === "7" ? { count: 7, step: 1 } : range === "30" ? { count: 15, step: 2 } : { count: 13, step: 7 };
+  const first = new Date(today);
+  first.setDate(first.getDate() - (config.count * config.step - 1));
+  return Array.from({ length: config.count }, (_, index) => {
+    const start = new Date(first);
+    start.setDate(start.getDate() + index * config.step);
+    const end = new Date(start);
+    end.setDate(end.getDate() + config.step);
+    return { start, end, label: start.toLocaleDateString(undefined, { month: "numeric", day: "numeric" }) };
+  });
+}
+function renderAdminActivitySvg(users, attendance, feedback, range) {
+  const buckets = makeAdminActivityBuckets(range);
+  const series = [
+    { label: "Latest sign-ins", color: "#526fe4", values: users.map(user => adminAnalyticsDate(user, "lastLoginAt")) },
+    { label: "Attendance punches", color: "#1ca58b", values: attendance.map(item => adminAnalyticsDate(item, "punchedInAt")) },
+    { label: "Feedback", color: "#e4a43b", values: feedback.map(item => adminAnalyticsDate(item, "submittedAt")) }
+  ];
+  const counts = series.map(item => buckets.map(bucket => item.values.filter(date => date && date >= bucket.start && date < bucket.end).length));
+  const max = Math.max(1, ...counts.flat());
+  const width = 700, height = 220, left = 36, top = 16, plotW = 650, plotH = 158;
+  const grid = [0, 0.25, 0.5, 0.75, 1].map(fraction => {
+    const y = top + plotH - fraction * plotH;
+    return '<line x1="' + left + '" y1="' + y + '" x2="' + (left + plotW) + '" y2="' + y + '" stroke="#edf0f5"/><text x="' + (left - 8) + '" y="' + (y + 3) + '" text-anchor="end" fill="#8490a3" font-size="9">' + Math.round(max * fraction) + '</text>';
+  }).join("");
+  const groupW = plotW / buckets.length;
+  const barW = Math.min(10, Math.max(3, (groupW - 9) / 3));
+  let bars = "";
+  buckets.forEach((bucket, index) => {
+    const groupStart = left + index * groupW;
+    series.forEach((item, seriesIndex) => {
+      const count = counts[seriesIndex][index];
+      if (!count) return;
+      const barH = Math.max(2, count / max * plotH);
+      const x = groupStart + (groupW - (3 * barW + 4)) / 2 + seriesIndex * (barW + 2);
+      const y = top + plotH - barH;
+      bars += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="3" fill="' + item.color + '"><title>' + item.label + ' · ' + bucket.label + ': ' + count + '</title></rect>';
+    });
+    if (buckets.length <= 15 || index % 2 === 0) bars += '<text x="' + (groupStart + groupW / 2) + '" y="' + (top + plotH + 20) + '" text-anchor="middle" fill="#738097" font-size="8">' + bucket.label + '</text>';
+  });
+  return '<svg class="firebase-chart-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Timeline comparing latest learner sign-ins, attendance punches, and feedback entries"><title>Learner activity timeline</title>' + grid + bars + '</svg>';
+}
+function renderAdminDonut(title, subtitle, values, labels, colors, centerValue, centerLabel) {
+  const total = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+  let offset = 0;
+  const segments = total ? values.map((value, index) => {
+    const start = offset;
+    offset += (Number(value) || 0) / total * 100;
+    return colors[index] + " " + start.toFixed(2) + "% " + offset.toFixed(2) + "%";
+  }) : ["#e9edf4 0% 100%"];
+  const legend = labels.map((label, index) => '<span><i style="background:' + colors[index] + '"></i><span>' + label + '</span><b>' + (Number(values[index]) || 0) + '</b></span>').join("");
+  return '<article class="firebase-chart-card firebase-chart-card--donut"><header class="firebase-chart-title"><div><h3>' + title + '</h3><p>' + subtitle + '</p></div></header><div class="firebase-donut-layout"><div class="firebase-donut" style="background:conic-gradient(' + segments.join(",") + ')" role="img" aria-label="' + title + '"><div class="firebase-donut-center"><b>' + centerValue + '</b><small>' + centerLabel + '</small></div></div><div class="firebase-donut-legend">' + legend + '</div></div></article>';
+}
+function buildAdminAnalytics(selectedDayValue, range) {
+  const selectedDay = selectedDayValue === "all" ? null : Number(selectedDayValue);
+  const start = adminAnalyticsStart(range);
+  const dayRecords = adminAllDayRecords.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "updatedAt", start));
+  const attendance = adminAttendance.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "punchedInAt", start));
+  const feedback = adminFeedback.filter(record => (!selectedDay || Number(record.day) === selectedDay) && adminAnalyticsInRange(record, "submittedAt", start));
+  const signIns = adminUsers.filter(user => adminAnalyticsInRange(user, "lastLoginAt", start));
+  const scores = collectAdminScoreAttempts(adminAllDayRecords, selectedDay, start);
+  const participantIds = new Set(dayRecords.concat(attendance, feedback).map(record => record.uid).filter(Boolean));
+  const participants = selectedDay ? adminUsers.filter(user => participantIds.has(user.id) || (user.completedDays || []).includes(selectedDay - 1)) : adminUsers;
+  const scoreAverage = scores.length ? scores.reduce((sum, item) => sum + item.percent, 0) / scores.length : null;
+  const passCount = scores.filter(item => item.passed).length;
+  const passRate = scores.length ? Math.round(passCount / scores.length * 100) : null;
+  const ratings = feedback.flatMap(item => [Number(item.contentRating), Number(item.deliveryRating)]).filter(value => value >= 1 && value <= 5);
+  const feedbackAverage = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null;
+  const averageXP = participants.length ? Math.round(participants.reduce((sum, user) => sum + (Number(user.xp) || 0), 0) / participants.length) : 0;
+  const completeCount = selectedDay
+    ? participants.filter(user => (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && record.dayComplete)).length
+    : adminUsers.filter(user => (user.completedDays || []).length >= 5).length;
+  const startedIds = new Set(dayRecords.filter(record => Number(record.completedSections) > 0 || Number(record.preAttempts) > 0 || Number(record.postAttempts) > 0 || Number(record.mockAttempts) > 0 || Number(record.wheelQuestions) > 0 || record.notesSaved || record.assignmentSubmitted).map(record => record.uid));
+  const startedCount = participants.filter(user => {
+    const complete = selectedDay
+      ? (user.completedDays || []).includes(selectedDay - 1) || dayRecords.some(record => record.uid === user.id && record.dayComplete)
+      : (user.completedDays || []).length >= 5;
+    return !complete && (startedIds.has(user.id) || Number(user.sectionsCompleted) > 0 || (user.completedDays || []).length > 0);
+  }).length;
+  const notStartedCount = Math.max(0, participants.length - completeCount - startedCount);
+  const kpis = [
+    ["Registered learners", adminUsers.length, "All Google-authenticated profiles"],
+    ["Active · 24 hours", adminUsers.filter(user => (dateValue(user.lastActivityAt)?.getTime() || 0) >= Date.now() - 86400000).length, "Recent saved activity"],
+    [selectedDay ? "Day " + selectedDay + " completed" : "Five-day completions", completeCount, selectedDay ? "Learners completing this day" : "Learners completing all five days"],
+    ["Average learner XP", averageXP, selectedDay ? "Learners with activity on this day" : "Across the cohort"],
+    ["Learners signed in", signIns.length, "Latest sign-in in selected period"],
+    ["Attendance sessions", attendance.length, "Filtered by day and date range"],
+    ["Assessment attempts", scores.length, selectedDay ? "Day " + selectedDay + " attempts" : "Across all five days"],
+    ["Average score", scoreAverage == null ? "—" : Math.round(scoreAverage) + "%", "Normalized across assessment types"],
+    ["Feedback entries", feedback.length, "Filtered by day and date range"],
+    ["Feedback rating", feedbackAverage == null ? "—" : feedbackAverage.toFixed(1) + " / 5", ratings.length + " individual ratings"]
+  ].map(item => '<article class="firebase-admin-kpi"><small>' + item[0] + '</small><strong>' + item[1] + '</strong><span>' + item[2] + '</span></article>').join("");
+  const dayOptions = ['<option value="all">All days</option>'].concat([1,2,3,4,5].map(day => '<option value="' + day + '">Day ' + day + '</option>')).join("");
+  const rangeOptions = [
+    '<option value="7">Last 7 days</option>',
+    '<option value="30">Last 30 days</option>',
+    '<option value="90">Last 90 days</option>',
+    '<option value="all">All time</option>'
+  ].join("");
+  const scoreLegend = '<div class="firebase-chart-legend"><span><i style="background:#526fe4"></i>Pre</span><span><i style="background:#1ca58b"></i>Post</span><span><i style="background:#e4a43b"></i>Mock</span><span><i style="background:#8b69d5"></i>Final</span></div>';
+  const scoreChart = scores.length
+    ? renderAdminScoreSvg(scores, selectedDay)
+    : '<div class="firebase-chart-empty">No assessment attempts match this day and date range yet.</div>';
+  const activityChart = renderAdminActivitySvg(signIns, attendance, feedback, range);
+  const completionValues = [completeCount, startedCount, notStartedCount];
+  const completionDonut = renderAdminDonut("Learner progress", selectedDay ? "Completion status for Day " + selectedDay : "Five-day course completion status", completionValues, ["Complete", "In progress", "Not started"], ["#1ca58b", "#526fe4", "#e8edf4"], participants.length ? Math.round(completeCount / participants.length * 100) + "%" : "0%", "complete");
+  const outcomeDonut = renderAdminDonut("Assessment outcomes", "Attempts in the selected period", [passCount, Math.max(0, scores.length - passCount)], ["Passed", "Retry needed"], ["#1ca58b", "#f1b65c"], passRate == null ? "—" : passRate + "%", "pass rate");
+  const ratingCounts = [1,2,3,4,5].map(stars => ratings.filter(value => value === stars).length);
+  const ratingColors = ["#df6f6f", "#ed9b55", "#e3bb53", "#5cae8c", "#5271df"];
+  const feedbackDonut = renderAdminDonut("Feedback ratings", "Content and delivery ratings", ratingCounts, ["1 star", "2 stars", "3 stars", "4 stars", "5 stars"], ratingColors, feedbackAverage == null ? "—" : feedbackAverage.toFixed(1), "avg / 5");
+  const completedPunches = attendance.filter(item => !!item.punchedOutAt).length;
+  const openPunches = Math.max(0, attendance.length - completedPunches);
+  const attendanceDonut = renderAdminDonut("Attendance", "Punch-out completion", [completedPunches, openPunches], ["Punched out", "Still open"], ["#1ca58b", "#e4a43b"], attendance.length ? Math.round(completedPunches / attendance.length * 100) + "%" : "—", "closed");
+  const dayLabel = selectedDay ? "Day " + selectedDay : "All days";
+  const rangeLabel = range === "all" ? "All time · 12-month trend" : "Last " + range + " days";
+  const errors = Object.entries(adminAnalyticsErrors).map(entry => '<div class="firebase-analytics-warning">' + entry[0] + ' analytics could not load: ' + escapeHTML(entry[1]) + '</div>').join("");
+  const html = '<section class="firebase-powerbi"><header class="firebase-powerbi-head"><div><span class="eyebrow" style="color:#5368c9">COHORT ANALYTICS · REAL-TIME</span><h2>Learning performance overview</h2><p>Scores, participation, attendance, and learner feedback update from live Firestore records.</p></div><div class="firebase-analytics-filters"><label>Course day<select id="adminAnalyticsDay">' + dayOptions + '</select></label><label>Activity period<select id="adminAnalyticsRange">' + rangeOptions + '</select></label><button class="action secondary firebase-print-dashboard" id="printAdminDashboard">Print / Save PDF</button></div></header><div class="firebase-analytics-grid"><article class="firebase-chart-card firebase-chart-card--score"><header class="firebase-chart-title"><div><h3>Assessment score trends</h3><p>Average score by day, normalized to percent; hover bars for attempt counts.</p></div><span class="firebase-chart-tag">' + dayLabel + '</span></header>' + scoreChart + scoreLegend + '</article><article class="firebase-chart-card firebase-chart-card--activity"><header class="firebase-chart-title"><div><h3>Engagement over time</h3><p>Sign-ins, attendance, and feedback across the selected period.</p></div><span class="firebase-chart-tag">' + rangeLabel + '</span></header>' + activityChart + '<div class="firebase-chart-legend"><span><i style="background:#526fe4"></i>Latest sign-ins</span><span><i style="background:#1ca58b"></i>Attendance</span><span><i style="background:#e4a43b"></i>Feedback</span></div><p class="firebase-sync-note">Sign-ins represent each learner’s latest recorded login; attendance and feedback respond to the day filter.</p></article>' + completionDonut + outcomeDonut + feedbackDonut + attendanceDonut + '</div>' + errors + '</section>';
+  return { kpis, html };
+}
+function rebuildAdminRosterScores() {
+  const next = new Map();
+  adminAllDayRecords.forEach(record => {
+    const uid = String(record.uid || "");
+    if (!uid) return;
+    const result = next.get(uid) || { pre: null, post: null };
+    ["pre", "post"].forEach(phase => {
+      const scores = Array.isArray(record[phase + "Scores"]) ? record[phase + "Scores"] : [];
+      const attempts = Number(record[phase + "Attempts"]) || 0;
+      let candidate = null;
+      if (scores.length) {
+        candidate = scores.reduce((latest, item) => {
+          const at = dateValue(item.at)?.getTime() || 0;
+          return !latest || at >= latest.at ? { score: Number(item.score) || 0, at, day: Number(record.day) || null, legacy: false } : latest;
+        }, null);
+      } else if (attempts > 0 && record[phase + "Best"] != null) {
+        candidate = { score: Number(record[phase + "Best"]) || 0, at: dateValue(record.updatedAt)?.getTime() || 0, day: Number(record.day) || null, legacy: true };
+      }
+      if (candidate && (!result[phase] || candidate.at >= result[phase].at)) result[phase] = candidate;
+    });
+    next.set(uid, result);
+  });
+  adminRosterScores = next;
+}
+function adminAnalyticsLiveLabel() {
+  const keys = Object.keys(adminAnalyticsReady);
+  if (!keys.every(key => adminAnalyticsReady[key])) return "CONNECTING…";
+  if (Object.keys(adminAnalyticsErrors).length) return "PARTIAL DATA";
+  if (Object.values(adminAnalyticsCache).some(Boolean)) return "CACHED SNAPSHOT";
+  return "LIVE UPDATES";
+}
+
 function renderAdminDashboard(fromCache = false) {
   const root = document.getElementById("firebaseAdminDashboard");
   if (!root) return;
+  const searchWasFocused = document.activeElement?.id === "adminSearch";
+  if (document.getElementById("adminSearch")) adminSearchTerm = document.getElementById("adminSearch").value;
+  if (document.getElementById("adminAnalyticsDay")) adminAnalyticsDay = document.getElementById("adminAnalyticsDay").value;
+  if (document.getElementById("adminAnalyticsRange")) adminAnalyticsRange = document.getElementById("adminAnalyticsRange").value;
+  const insights = buildAdminAnalytics(adminAnalyticsDay, adminAnalyticsRange);
   const activeSince = Date.now() - 24 * 60 * 60 * 1000;
   const active = adminUsers.filter(user => (dateValue(user.lastActivityAt)?.getTime() || 0) >= activeSince).length;
   const complete = adminUsers.filter(user => (user.completedDays || []).length >= 5).length;
@@ -680,7 +968,7 @@ function renderAdminDashboard(fromCache = false) {
     const count = adminUsers.filter(user => Number(user[field]) > 0).length;
     return count ? (total / count).toFixed(1) : "—";
   };
-  const query = (document.getElementById("adminSearch")?.value || "").trim().toLowerCase();
+  const query = adminSearchTerm.trim().toLowerCase();
   const filtered = adminUsers.filter(user => `${user.displayName || ""} ${user.email || ""}`.toLowerCase().includes(query));
   const bars = Array.from({ length: 5 }, (_, day) => {
     const count = adminUsers.filter(user => (user.completedDays || []).includes(day)).length;
@@ -708,12 +996,19 @@ function renderAdminDashboard(fromCache = false) {
   const recipientOptions = filtered.map(user => `<option value="${escapeHTML(user.id)}">${escapeHTML(user.displayName || "Learner")} · ${escapeHTML(user.email || "No email")}</option>`).join("");
   const communications = `<section class="firebase-comms"><header class="firebase-comms-head"><div><span class="eyebrow" style="color:#5368c9">COURSE COMMUNICATIONS</span><h2>Notifications and Actions</h2><p>Send a live in-portal update and, when mail delivery is configured, a personalized email. Choose a polished template or write a custom message.</p></div><span class="firebase-live-indicator">ADMIN ONLY</span></header><div class="firebase-comms-grid"><label>Recipients<select id="adminMessageTarget"><option value="all">All current results · ${filtered.length} learner${filtered.length === 1 ? "" : "s"}</option>${recipientOptions}</select></label><label>Message type<select id="adminMessageKind"><option value="Reminder">Reminder</option><option value="Announcement">Announcement</option><option value="Session update">Session update</option><option value="Welcome">Welcome</option><option value="Completion">Completion</option><option value="Appreciation">Appreciation</option><option value="Certificate">Certificate</option><option value="Letter of recommendation">Letter of recommendation</option></select></label><label>Email template<select id="adminMessageTemplate"><option value="">Custom message</option><option value="welcome">Welcome</option><option value="completion">Completion</option><option value="appreciation">Appreciation</option><option value="certificate">Certificate ready</option><option value="lor">Letter of recommendation draft</option></select></label><label class="wide">Subject<input id="adminMessageSubject" maxlength="140" placeholder="Choose a template or write a subject"></label><label class="wide">Message<textarea id="adminMessageBody" maxlength="2000" placeholder="Choose a template or write the message learners should receive."></textarea><small class="firebase-template-note">Templates personalize learner name, course completion, and XP when queued.</small></label><label class="wide firebase-comms-check"><input id="adminMessageEmail" type="checkbox"><span>Also queue an email copy (requires configured mail delivery)</span></label></div><div class="firebase-comms-actions"><small>Emails use Mentor Kapil as sender through the configured mail provider. Certificate emails link to the portal; they do not attach a PDF. Review drafts before sending.</small><div class="firebase-comms-buttons"><button class="action secondary" id="testCourseEmail">Send test to Mentor Kapil</button><button class="action" id="sendCourseCommunication">Send to learners</button></div></div></section>`;
   const details = selected ? `<section class="firebase-detail"><header class="firebase-detail-head"><div><span class="eyebrow" style="color:#5368c9">INDIVIDUAL LEARNER RECORD</span><h2>${escapeHTML(selected.displayName || "Learner")}</h2><p>${escapeHTML(selected.email || "")} · ${Number(selected.xp) || 0} XP · ${(selected.completedDays || []).length}/5 days</p></div><button class="action secondary" id="closeAdminDetail">Close detail</button></header><div class="firebase-detail-scroll"><h3>Day-by-day performance &amp; final assessment scores</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Sections</th><th>Pre-assessment</th><th>Post-assessment</th><th>Mock assessment</th><th>Spin challenge</th><th>Notes / assignment</th><th>Badge</th></tr></thead><tbody>${detailRows || `<tr><td colspan="8" class="firebase-empty">Daily progress records are syncing. Refresh in a moment.</td></tr>`}</tbody></table></div><h3>Daily learner feedback</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Day</th><th>Content</th><th>Delivery</th><th>Comment</th><th>Submitted</th></tr></thead><tbody>${feedbackRows || `<tr><td colspan="5" class="firebase-empty">No feedback submitted yet.</td></tr>`}</tbody></table></div><h3>Attendance punches</h3><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Date</th><th>Session</th><th>Punch in</th><th>Punch out</th><th>Status</th></tr></thead><tbody>${attendanceRows || `<tr><td colspan="5" class="firebase-empty">No attendance punches recorded yet.</td></tr>`}</tbody></table></div></div></section>` : "";
-  root.innerHTML = `<header class="firebase-admin-head"><div><span class="eyebrow" style="color:#5368c9">ADMIN · LIVE LEARNER OPERATIONS</span><h1 id="firebaseAdminTitle">Learner performance</h1><p>Live individual progress, assessment outcomes, feedback and session attendance. Learner notes and assignment text remain private.</p></div><span class="firebase-live-indicator">${fromCache ? "CACHED SNAPSHOT" : "LIVE UPDATES"}</span></header>
-    <div class="firebase-admin-kpis"><article class="firebase-admin-kpi"><small>Registered learners</small><strong>${adminUsers.length}</strong></article><article class="firebase-admin-kpi"><small>Active in last 24 hours</small><strong>${active}</strong></article><article class="firebase-admin-kpi"><small>Five-day completions</small><strong>${complete}</strong></article><article class="firebase-admin-kpi"><small>Average learner XP</small><strong>${avgXP}</strong></article><article class="firebase-admin-kpi"><small>Attendance sessions</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.attendanceCount) || 0), 0)}</strong></article><article class="firebase-admin-kpi"><small>Daily feedback</small><strong>${adminUsers.reduce((sum, user) => sum + (Number(user.feedbackCount) || 0), 0)}</strong></article></div>
+  root.innerHTML = `<header class="firebase-admin-head"><div><span class="eyebrow" style="color:#5368c9">ADMIN · LIVE LEARNER OPERATIONS</span><h1 id="firebaseAdminTitle">Learner performance</h1><p>Live individual progress, assessment outcomes, feedback and session attendance. Learner notes and assignment text remain private.</p></div><span class="firebase-live-indicator">${adminAnalyticsLiveLabel()}</span></header>
+    <div class="firebase-admin-kpis">${insights.kpis}</div>${insights.html}
     <section class="firebase-analysis"><h2>Course pulse</h2><p>${attempts ? `${passes} passed tests out of ${attempts} recorded attempts (${Math.round(passes / attempts * 100)}% pass rate).` : "No assessment attempts have been recorded yet."} Average content rating: ${ratingAverage("averageContentRating")} / 5 · average delivery rating: ${ratingAverage("averageDeliveryRating")} / 5. Completion bars show learners who have finished each day.</p><div class="firebase-day-chart">${bars}</div></section>${communications}
     <section class="firebase-analysis"><h2>Assessment reports</h2><p>Download daily or consolidated pre, post, mock, and final assessment scores. PDF opens the print dialog; choose Save as PDF.</p><label>Daily report day <select id="assessmentDay"><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option><option value="4">Day 4</option><option value="5">Day 5</option></select></label> <button class="action" id="dailyAssessCsv">Daily CSV</button> <button class="action secondary" id="dailyAssessPdf">Daily PDF</button> <button class="action" id="allAssessCsv">Consolidated CSV</button> <button class="action secondary" id="allAssessPdf">Consolidated PDF</button><p id="assessmentReportStatus" role="status"></p></section>
     <section class="firebase-users"><div class="panelhead"><div><h2>All learner records</h2><p class="assessment-sub">Open an individual profile for daily scores, notes/assignment completion, feedback, and attendance punches.</p></div></div><div class="firebase-users-toolbar"><input id="adminSearch" type="search" placeholder="Filter by learner name or email" aria-label="Filter learner records"><button class="action" id="downloadAdminCsv">Download performance CSV</button><button class="action secondary" id="downloadActivityCsv">Download feedback & attendance CSV</button></div><div class="firebase-table-wrap"><table class="firebase-table"><thead><tr><th>Learner</th><th>Last sign-in</th><th>Last attempt</th><th>Registered</th><th>Days</th><th>Sections</th><th>Assessment pass / attempts</th><th>Final pre score</th><th>Final post score</th><th>Mock passes</th><th>Attendance</th><th>Content rating</th><th>Delivery rating</th><th>Badges</th><th>XP</th><th>Last activity</th></tr></thead><tbody>${rows || `<tr><td colspan="16" class="firebase-empty">${adminUsers.length ? "No learners match this filter." : "No Google learner profiles are recorded yet."}</td></tr>`}</tbody></table></div><p class="firebase-sync-note">Live Firestore listeners · ${new Date().toLocaleTimeString()} · Learner progress, feedback and punches update as they are saved.</p></section>${details}`;
-  document.getElementById("adminSearch")?.addEventListener("input", () => renderAdminDashboard(fromCache));
+  document.getElementById("adminSearch")?.addEventListener("input", event => { adminSearchTerm = event.target.value; renderAdminDashboard(fromCache); });
+  const dayFilter = document.getElementById("adminAnalyticsDay");
+  if (dayFilter) { dayFilter.value = adminAnalyticsDay; dayFilter.addEventListener("change", event => { adminAnalyticsDay = event.target.value; renderAdminDashboard(fromCache); }); }
+  const rangeFilter = document.getElementById("adminAnalyticsRange");
+  if (rangeFilter) { rangeFilter.value = adminAnalyticsRange; rangeFilter.addEventListener("change", event => { adminAnalyticsRange = event.target.value; renderAdminDashboard(fromCache); }); }
+  document.getElementById("printAdminDashboard")?.addEventListener("click", () => window.print());
+  const searchInput = document.getElementById("adminSearch");
+  if (searchInput) { searchInput.value = adminSearchTerm; if (searchWasFocused) { searchInput.focus(); try { searchInput.setSelectionRange(adminSearchTerm.length, adminSearchTerm.length); } catch {} } }
   ["dailyAssessCsv","dailyAssessPdf","allAssessCsv","allAssessPdf"].forEach(id=>document.getElementById(id)?.addEventListener("click",async()=>{const s=document.getElementById("assessmentReportStatus");if(s)s.textContent="Preparing report…";try{await assessmentReport(id.endsWith("Csv")?"csv":"pdf",id.startsWith("all"));if(s)s.textContent="Report ready.";}catch(e){if(s)s.textContent="Report failed: "+readableError(e);}}));
   document.getElementById("downloadAdminCsv")?.addEventListener("click", downloadAdminCSV);
   document.getElementById("downloadActivityCsv")?.addEventListener("click", downloadAdminActivityCSV);
@@ -978,58 +1273,41 @@ function openAdminLearnerDetail(uid) {
   ];
 }
 
-async function loadAdminRosterScores() {
-  const loadId = ++adminRosterScoreLoad;
-  const next = new Map();
-  for (let i = 0; i < adminUsers.length; i += 15) {
-    const batch = await Promise.all(adminUsers.slice(i, i + 15).map(async user => {
-      try {
-        const snapshot = await window.firebaseGetDocs(window.firebaseCollection(db, "users", user.id, "days"));
-        const result = { pre: null, post: null };
-        snapshot.docs.forEach(doc => {
-          const record = doc.data();
-          for (const phase of ["pre", "post"]) {
-            const scores = Array.isArray(record[phase + "Scores"]) ? record[phase + "Scores"] : [];
-            const attempts = Number(record[phase + "Attempts"]) || 0;
-            let candidate = null;
-            if (scores.length) {
-              candidate = scores.reduce((latest, item) => {
-                const at = dateValue(item.at)?.getTime() || 0;
-                return !latest || at >= latest.at ? { score: Number(item.score) || 0, at, day: Number(record.day) || null, legacy: false } : latest;
-              }, null);
-            } else if (attempts > 0 && record[phase + "Best"] != null) {
-              candidate = { score: Number(record[phase + "Best"]) || 0, at: dateValue(record.updatedAt)?.getTime() || 0, day: Number(record.day) || null, legacy: true };
-            }
-            if (candidate && (!result[phase] || candidate.at >= result[phase].at)) result[phase] = candidate;
-          }
-        });
-        return [user.id, result];
-      } catch (error) { console.warn("Could not load roster assessment scores for", user.id, error); return [user.id, { pre: null, post: null }]; }
-    }));
-    batch.forEach(([uid, scores]) => next.set(uid, scores));
-  }
-  if (loadId !== adminRosterScoreLoad) return;
-  adminRosterScores = next;
-  renderAdminDashboard();
-}
-
 function startAdminListener() {
   if (!window.firebaseIsAdmin || adminUnsubscribes.length || !db) return;
-  const indicator = document.querySelector(".firebase-live-indicator");
-  if (indicator) indicator.textContent = "CONNECTING…";
-  const onError = error => {
+  const onUsersError = error => {
     adminUnsubscribes.forEach(unsubscribe => unsubscribe());
     adminUnsubscribes = [];
     const root = document.getElementById("firebaseAdminDashboard");
     if (root) root.innerHTML = `<section class="panel"><h2>Admin report unavailable</h2><p>${escapeHTML(readableError(error))}</p><p>Confirm your admin claim and deploy the current Firestore rules.</p></section>`;
   };
-  adminUnsubscribes = [window.firebaseOnSnapshot(window.firebaseCollection(db, "users"), snapshot => {
-    adminUsers = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (dateValue(b.lastActivityAt)?.getTime() || 0) - (dateValue(a.lastActivityAt)?.getTime() || 0));
+  const watchGroup = (key, collectionName, assign) => window.firebaseOnSnapshot(window.firebaseCollectionGroup(db, collectionName), snapshot => {
+    adminAnalyticsReady[key] = true;
+    adminAnalyticsCache[key] = !!snapshot.metadata.fromCache;
+    delete adminAnalyticsErrors[key];
+    assign(snapshot.docs.map(item => ({ ...item.data(), uid: item.data().uid || item.ref?.parent?.parent?.id || "" })));
+    if (key === "days") rebuildAdminRosterScores();
     renderAdminDashboard(snapshot.metadata.fromCache);
-    loadAdminRosterScores();
-  }, onError)];
+  }, error => {
+    console.warn("Admin analytics collection unavailable: " + collectionName, error);
+    adminAnalyticsReady[key] = true;
+    adminAnalyticsErrors[key] = readableError(error);
+    renderAdminDashboard();
+  });
+  adminUnsubscribes = [
+    window.firebaseOnSnapshot(window.firebaseCollection(db, "users"), snapshot => {
+      adminAnalyticsReady.users = true;
+      adminAnalyticsCache.users = !!snapshot.metadata.fromCache;
+      delete adminAnalyticsErrors.users;
+      adminUsers = snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (dateValue(b.lastActivityAt)?.getTime() || 0) - (dateValue(a.lastActivityAt)?.getTime() || 0));
+      rebuildAdminRosterScores();
+      renderAdminDashboard(snapshot.metadata.fromCache);
+    }, onUsersError),
+    watchGroup("days", "days", records => { adminAllDayRecords = records; }),
+    watchGroup("feedback", "feedback", records => { adminFeedback = records; }),
+    watchGroup("attendance", "attendance", records => { adminAttendance = records; })
+  ];
 }
-
 function setAdminAccess(enabled) {
   window.firebaseIsAdmin = enabled;
   const nav = document.getElementById("navAdmin");
@@ -1040,6 +1318,13 @@ function setAdminAccess(enabled) {
     adminDetailUnsubscribes.forEach(unsubscribe => unsubscribe());
     adminDetailUnsubscribes = [];
     selectedAdminUid = null;
+    adminAllDayRecords = [];
+    adminFeedback = [];
+    adminAttendance = [];
+    adminAnalyticsReady = { users: false, days: false, feedback: false, attendance: false };
+    adminAnalyticsCache = { users: false, days: false, feedback: false, attendance: false };
+    adminAnalyticsErrors = {};
+    adminRosterScores = new Map();
     adminDayRecords = [];
     adminDetailFeedback = [];
     adminDetailAttendance = [];
