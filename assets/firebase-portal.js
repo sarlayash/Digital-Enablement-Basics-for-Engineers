@@ -548,11 +548,13 @@ async function syncNow(login = false) {
     await Promise.all(writes);
     if (currentUser?.uid === user.uid) {
       try {
-        const board = makePublicLeaderboardEntry(user, snapshot);
-        await Promise.all(board.dailyXp.map((xp, day) => {
+        if (!window.firebaseIsAdmin) {
+          const board = makePublicLeaderboardEntry(user, snapshot);
+          await Promise.all(board.dailyXp.map((xp, day) => {
           const boardRef = window.firebaseDoc(db, "publicLeaderboardDays", `day-${day + 1}`, "learners", user.uid);
-          return window.firebaseSetDoc(boardRef, { displayName: board.displayName, xp }, { merge: true });
-        }));
+            return window.firebaseSetDoc(boardRef, { displayName: board.displayName, xp }, { merge: true });
+          }));
+        }
       } catch (leaderboardError) {
         console.warn("Daily leaderboard entry could not be updated", leaderboardError);
       }
