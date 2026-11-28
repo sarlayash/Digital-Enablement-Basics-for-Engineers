@@ -37,6 +37,9 @@ const syncedDayFingerprints = new Map();
 let myFeedback = {};
 let myAttendance = {};
 let myNotifications = [];
+let leaderboardEntries = [];
+let activeLeaderboardDay = 0;
+let leaderboardUnsubscribe = null;
 let generatedNotifications = [];
 let myFeedbackUnsubscribe = null;
 let myAttendanceUnsubscribe = null;
@@ -462,6 +465,61 @@ function makeDaySummary(state, day) {
   return {day:day+1,completedSections,sectionsTotal:8,preAttempts:(pre.attempts||[]).length+(pre.active?1:0),prePassed:!!pre.passed,preBest:best(pre),preScores:scores(pre),postAttempts:(post.attempts||[]).length+(post.active?1:0),postPassed:!!post.passed,postBest:best(post),postScores:scores(post),mockAttempts:(mock.attempts||[]).length+(mock.active?1:0),mockPassed:(mock.attempts||[]).some(x=>!!x.passed),mockBest:best(mock),mockScores:scores(mock),finalAttempts:(final.attempts||[]).length+(final.active?1:0),finalPassed:!!final.passed,finalBest:best(final),finalScores:scores(final),wheelQuestions,notesSaved:!!String(state?.notes?.[day]||"").trim(),assignmentSubmitted:!!String(state?.answers?.[day]||"").trim(),badgeEarned:(state?.dayBadges||[]).includes(day),dayComplete:!!state?.dayAwards?.[day]};
 }
 
+function makePublicLeaderboardEntry(user, state) {
+  const displayName = String(state?.profile?.fullName || state?.profileName || state?.name || user.displayName || "Learner").trim().slice(0, 48);
+  const dailyXp = Array.from({ length: 5 }, (_, day) => {
+    const phases = state?.assessments?.[day] || {};
+    const pre = phases.pre || {}, post = phases.post || {};
+    const mock = state?.mockTests?.[day] || {};
+    const wheelCorrect = Number(state?.wheel?.[day]?.correct) || 0;
+    const completionXp = state?.dayAwards?.[day]
+      ? 300 + (Number(pre.xpEarned) || 0) + (Number(post.xpEarned) || 0) + wheelCorrect * 5
+      : 0;
+    const mockXp = mock.xpAwarded ? 20 : 0;
+    const finalXp = day === 4 && state?.finalAssessment?.xpAwarded ? 50 : 0;
+    return Math.max(0, Math.min(1000, Math.floor(completionXp + mockXp + finalXp)));
+  });
+  return { displayName, dailyXp };
+}
+function renderDailyLeaderboard(day = activeLeaderboardDay) {
+  activeLeaderboardDay = Math.max(0, Math.min(4, Number(day) || 0));
+  const root = document.getElementById("dailyLeaderboardRows");
+  const status = document.getElementById("dailyLeaderboardStatus");
+  if (!root || !status) return;
+  document.querySelectorAll("[data-leaderboard-day]").forEach(button => {
+    const selected = Number(button.dataset.leaderboardDay) === activeLeaderboardDay;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const ranked = leaderboardEntries
+    .map(item => ({ name: String(item.displayName || "").trim(), xp: Number(item.dailyXp?.[activeLeaderboardDay]) || 0 }))
+    .filter(item => item.name && item.xp > 0)
+    .sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name))
+    .slice(0, 10);
+  root.innerHTML = ranked.length ? ranked.map((item, index) =>
+    `<li class="daily-leaderboard-row"><span class="daily-leaderboard-rank">${index + 1}</span><strong>${escapeHTML(item.name)}</strong><span class="daily-leaderboard-xp">${item.xp} XP</span></li>`
+  ).join("") : '<li class="daily-leaderboard-empty">Scores will appear here as learners complete a day.</li>';
+  if (leaderboardUnsubscribe) status.textContent = ranked.length ? "Top 10 · XP earned for this day" : "No daily XP recorded yet.";
+}
+function startPublicLeaderboard() {
+  leaderboardUnsubscribe?.();
+  leaderboardUnsubscribe = window.firebaseOnSnapshot(
+    window.firebaseCollection(db, "publicLeaderboard"),
+    snapshot => {
+      leaderboardEntries = snapshot.docs.map(item => item.data());
+      renderDailyLeaderboard();
+    },
+    error => {
+      console.warn("Public daily leaderboard is unavailable", error);
+      const status = document.getElementById("dailyLeaderboardStatus");
+      if (status) status.textContent = "Leaderboard data is not available yet.";
+    }
+  );
+  document.getElementById("dailyLeaderboardTabs")?.addEventListener("click", event => {
+    const button = event.target.closest("[data-leaderboard-day]");
+    if (button) renderDailyLeaderboard(Number(button.dataset.leaderboardDay));
+  });
+}
 async function syncNow(login = false) {
   if (!currentUser || !latestState) return false;
   const user = currentUser;
@@ -487,6 +545,12 @@ async function syncNow(login = false) {
     }
     await Promise.all(writes);
     if (currentUser?.uid === user.uid) {
+      try {
+        const boardRef = window.firebaseDoc(db, "publicLeaderboard", user.uid);
+        await window.firebaseSetDoc(boardRef, makePublicLeaderboardEntry(user, snapshot), { merge: true });
+      } catch (leaderboardError) {
+        console.warn("Daily leaderboard entry could not be updated", leaderboardError);
+      }
       pendingFingerprints.forEach((fingerprint, key) => syncedDayFingerprints.set(key, fingerprint));
       clearTimeout(syncRetryTimer);
       syncRetryTimer = 0;
@@ -1130,6 +1194,7 @@ try {
   window.firebaseServerTimestamp = firestoreSdk.serverTimestamp;
   window.firebaseTimestampFromDate = firestoreSdk.Timestamp.fromDate;
   cloudReady = true;
+  startPublicLeaderboard();
   const googleButton = document.getElementById("googleSignInButton");
   if (googleButton) googleButton.disabled = false;
 
