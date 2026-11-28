@@ -323,31 +323,31 @@ C:\\training&gt;</pre><form class=\"security-terminal-form\" onsubmit=\"event.pr
 
   var securityLabCommands = {
     kali: {
-      "help":"SAFE COMMANDS\\nhelp · whoami · pwd · ls · cat README.txt · ip a · ping lab-gateway · nmap demo-gateway · server status · server start · server logs · attack phishing-demo · attack password-demo · attack sql-demo · attack xss-demo",
+      "help":"SAFE COMMANDS\nhelp · whoami · pwd · ls · cat README.txt · ip a · ping lab-gateway · nmap demo-gateway · server status · server start · server logs · attack phishing-demo · attack password-demo · attack sql-demo · attack xss-demo",
       "whoami":"learner@training-kali (simulated user)",
       "pwd":"/home/learner/security-lab (fictional path)",
       "ls":"README.txt  sample-logs/  demo-targets/  reports/",
       "cat readme.txt":"Welcome to the isolated training image. Targets and logs are fictional. No commands reach a real host.",
-      "ip a":"eth0: 192.0.2.10/24 · documentation-only address\\nlo: 127.0.0.1 · simulated loopback",
+      "ip a":"eth0: 192.0.2.10/24 · documentation-only address\nlo: 127.0.0.1 · simulated loopback",
       "ping lab-gateway":"SIMULATION ONLY: lab-gateway (192.0.2.1) · 4 canned replies · 0 packets sent",
-      "nmap demo-gateway":"SIMULATED SCAN · no network traffic sent\\ndemo-gateway (fictional)\\n22/tcp open  training-ssh (mock)\\n80/tcp open  training-web (mock)\\nDefender note: inventory services, patch them, and restrict access.",
-      "server status":"training-web.service · simulated\\nState: stopped · Listener: none · Network: disabled",
+      "nmap demo-gateway":"SIMULATED SCAN · no network traffic sent\ndemo-gateway (fictional)\n22/tcp open  training-ssh (mock)\n80/tcp open  training-web (mock)\nDefender note: inventory services, patch them, and restrict access.",
+      "server status":"training-web.service · simulated\nState: stopped · Listener: none · Network: disabled",
       "server start":"Started the mock training-web service in this page only. No server process or network listener was created.",
-      "server logs":"[DEMO] 09:12 login rejected: parameterized query\\n[DEMO] 09:14 MFA prompt denied by user\\n[DEMO] 09:15 alert sent to training queue",
+      "server logs":"[DEMO] 09:12 login rejected: parameterized query\n[DEMO] 09:14 MFA prompt denied by user\n[DEMO] 09:15 alert sent to training queue",
       "attack phishing-demo":"DUMMY INCIDENT · A fictional urgent message requests a password through an unfamiliar link. Defender action: do not open it; verify through a known channel and report it.",
       "attack password-demo":"DUMMY INCIDENT · A scripted burst of failed sign-ins appears in sample logs. No passwords were tried. Defender action: rate-limit, alert, and review MFA and account lockout settings.",
       "attack sql-demo":"DUMMY INCIDENT · A mock login form receives suspicious input. No query ran. Defender action: use parameterized queries, validate input, and return a generic error.",
       "attack xss-demo":"DUMMY INCIDENT · Untrusted markup is shown as plain text in this safe preview. Nothing executes. Defender action: encode output and use a restrictive content security policy."
     },
     cmd: {
-      "help":"SAFE COMMANDS\\nhelp · whoami · cd · dir · type readme.txt · ipconfig · ping training.local · tracert training.local · attack phishing-demo · attack password-demo · attack sql-demo · attack xss-demo",
-      "whoami":"TRAINING-PC\\\\Learner (simulated user)",
-      "cd":"Current directory: C:\\\\training (fictional path)",
-      "dir":" Directory of C:\\\\training\\n README.txt     1 KB\\n sample-logs    <DIR>\\n reports        <DIR>",
+      "help":"SAFE COMMANDS\nhelp · whoami · cd · dir · type readme.txt · ipconfig · ping training.local · tracert training.local · attack phishing-demo · attack password-demo · attack sql-demo · attack xss-demo",
+      "whoami":"TRAINING-PC\\Learner (simulated user)",
+      "cd":"Current directory: C:\\training (fictional path)",
+      "dir":" Directory of C:\\training\n README.txt     1 KB\n sample-logs    <DIR>\n reports        <DIR>",
       "type readme.txt":"Command Prompt training simulator. All paths and outputs are fictional; the host computer is not accessed.",
-      "ipconfig":"Ethernet adapter Training-Lab:\\n IPv4 Address . . . : 192.0.2.25 (documentation-only)\\n Default Gateway . . : 192.0.2.1 (simulated)",
+      "ipconfig":"Ethernet adapter Training-Lab:\n IPv4 Address . . . : 192.0.2.25 (documentation-only)\n Default Gateway . . : 192.0.2.1 (simulated)",
       "ping training.local":"SIMULATION ONLY: training.local · 4 canned replies · 0 packets sent",
-      "tracert training.local":"Simulated route:\\n 1  training-gateway (fictional)\\n 2  training.local (fictional)\\nNo packets sent.",
+      "tracert training.local":"Simulated route:\n 1  training-gateway (fictional)\n 2  training.local (fictional)\nNo packets sent.",
       "attack phishing-demo":"DUMMY INCIDENT · Training inbox shows an unexpected password-reset link. Do not click; verify using a bookmarked help-desk channel and report it.",
       "attack password-demo":"DUMMY INCIDENT · Sample log shows repeated failed sign-ins and a lockout. No credentials were tested. Review alerting, MFA, and recovery procedures.",
       "attack sql-demo":"DUMMY INCIDENT · The mock application rejects suspicious input before any database query. Explain why parameterized queries prevent input from changing query structure.",
@@ -361,11 +361,11 @@ C:\\training&gt;</pre><form class=\"security-terminal-form\" onsubmit=\"event.pr
     var input=document.getElementById(kind==="kali"?"securityKaliInput":"securityCmdInput");
     var output=document.getElementById(kind==="kali"?"securityKaliOutput":"securityCmdOutput");
     if(!input||!output)return;
-    var command=input.value.trim().replace(/\\s+/g," ").slice(0,100);
+    var command=input.value.trim().replace(/\s+/g," ").slice(0,100);
     if(!command)return;
     var response=(securityLabCommands[kind]||{})[command.toLowerCase()]||"Command blocked: this training console only accepts its listed, fictional commands. Type help.";
-    var prompt=kind==="kali"?"$ ":"C:\\\\training&gt; ";
-    output.textContent=(output.textContent+"\\n"+prompt+command+"\\n"+response).slice(-7000);
+    var prompt=kind==="kali"?"$ ":"C:\\training&gt; ";
+    output.textContent=(output.textContent+"\n"+prompt+command+"\n"+response).slice(-7000);
     output.scrollTop=output.scrollHeight;
     input.value="";
   };
