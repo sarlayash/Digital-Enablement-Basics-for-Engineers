@@ -17,6 +17,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function validPublicDailyLeaderboardEntry() {
+      return request.resource.data.keys().hasOnly(['displayName', 'xp'])
+        && request.resource.data.keys().hasAll(['displayName', 'xp'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 48
+        && request.resource.data.xp is int
+        && request.resource.data.xp >= 0
+        && request.resource.data.xp <= 1000;
+    }
+
     function validLearnerSummary(userId) {
       return request.resource.data.uid == userId
         && request.resource.data.keys().hasOnly([
@@ -74,6 +85,14 @@ service cloud.firestore {
         && request.resource.data.assignmentCount is int
         && request.resource.data.assignmentCount >= 0
         && request.resource.data.lastAttemptLabel is string;
+    }
+
+    match /publicLeaderboardDays/{dayId}/learners/{userId} {
+      allow get, list: if true;
+      allow create, update: if isOwner(userId)
+        && dayId in ['day-1', 'day-2', 'day-3', 'day-4', 'day-5']
+        && validPublicDailyLeaderboardEntry();
+      allow delete: if false;
     }
 
     match /users/{userId} {
