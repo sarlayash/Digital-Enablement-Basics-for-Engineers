@@ -621,7 +621,7 @@ function mergeLearnerProgress(localState, cloudState) {
   const cloudAt = Number(cloud._firebaseLocalUpdatedAt) || 0;
   const preferLocal = !Object.keys(cloud).length || localAt >= cloudAt;
   const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-  const merge = (left, right) => {
+  const merge = (left, right, key = "") => {
     if (left === undefined) return clone(right);
     if (right === undefined) return clone(left);
     if (Array.isArray(left) && Array.isArray(right)) {
@@ -629,21 +629,27 @@ function mergeLearnerProgress(localState, cloudState) {
       const second = preferLocal ? right : left;
       const found = new Map();
       [...first, ...second].forEach(item => {
-        const key = learnerProgressFingerprint(item);
-        if (!found.has(key)) found.set(key, item);
+        const fingerprint = learnerProgressFingerprint(item);
+        if (!found.has(fingerprint)) found.set(fingerprint, item);
       });
       return Array.from(found.values()).map(clone);
     }
+    const isTimestamp = value => value instanceof Date || (value && typeof value === "object" && (typeof value.toDate === "function" || typeof value.seconds === "number"));
+    if (isTimestamp(left) || isTimestamp(right)) return clone(preferLocal ? left : right);
     const leftObject = left && typeof left === "object" && !Array.isArray(left);
     const rightObject = right && typeof right === "object" && !Array.isArray(right);
     if (leftObject && rightObject) {
       const result = {};
-      new Set([...Object.keys(left), ...Object.keys(right)]).forEach(key => {
-        result[key] = merge(left[key], right[key]);
+      new Set([...Object.keys(left), ...Object.keys(right)]).forEach(property => {
+        result[property] = merge(left[property], right[property], property);
       });
       return result;
     }
-    if (typeof left === "number" && typeof right === "number") return Math.max(left, right);
+    if (typeof left === "number" && typeof right === "number") {
+      if (key === "start") return left && right ? Math.min(left, right) : (left || right);
+      if (/average.*rating/i.test(key)) return preferLocal ? left : right;
+      return Math.max(left, right);
+    }
     if (typeof left === "boolean" && typeof right === "boolean") return left || right;
     if (left === null || right === null) {
       const selected = preferLocal ? left : right;
